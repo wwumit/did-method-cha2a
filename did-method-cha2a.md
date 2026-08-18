@@ -17,7 +17,7 @@ The `did:cha2a` method serves an open ecosystem for agent-to-agent identity and 
 
 The method is **registry-mediated**: resolving a `did:cha2a` DID returns a W3C DID Document whose verification key is the Registry's Ed25519 signing key. The trust model is explicit and stated honestly: a verifier trusts a `did:cha2a` DID exactly as much as it trusts the Registry resolver it was configured with. This design is deliberately identical in trust semantics to other registry-mediated methods, while remaining independent in name, specification, and implementation.
 
-The method maps cleanly onto a four-layer identity model used by the DSH (DeepSeek Harness) ecosystem proposal:
+The method supports a four-layer identity model:
 
 | Layer | cha2a resource type | Semantics |
 |---|---|---|
@@ -40,11 +40,10 @@ did:cha2a:publisher:example-marketplace.com
 
 ### 1.2 Relationship to other registry-mediated methods
 
-Registry-mediated DID methods (a registry assigns the DID, holds the controller signing key, and resolves DID Documents over HTTP) form a small family. This method shares that family's trust semantics and resource-type conventions (see §3.2) for interoperability, but is an **independent registration** for three reasons:
+Registry-mediated DID methods (a registry assigns the DID, holds the controller signing key, and resolves DID Documents over HTTP) form a small family. This method shares that family's trust semantics and resource-type conventions (see §3.2) for interoperability, but is an **independent registration**:
 
-1. **Jurisdictional deployment.** The reference Registry is deployed and operated in China, keeping registered resource metadata within national data-sovereignty boundaries. Deployment jurisdiction is a property of the instance, not the method, but the method is specified and maintained by a China-based maintainer, which is a deliberate and documented choice.
-2. **Ecosystem binding.** The method is designed to serve the DSH (DeepSeek Harness) open ecosystem — a plugin/skill ecosystem whose distribution is package-based — and maps its four-layer identity model (publisher/authority/skill/agent) directly onto this method's resource types (see §1). It is specified with that ecosystem's conventions in mind.
-3. **Independent governance.** The method name, specification, and maintenance track are owned independently, so that the ecosystem's identity layer does not depend on any single external project's continued operation or governance.
+1. **Jurisdictional deployment.** The reference Registry is deployed and operated domestically (compliancehub.cn), keeping registered resource metadata within the operator's domestic compliance boundaries. Deployment jurisdiction is a property of the instance, not the method, but the method is specified and maintained by the same domestic maintainer, which is a deliberate and documented choice.
+2. **Independent governance.** The method name, specification, and maintenance track are owned independently, so that the ecosystem's identity layer does not depend on any single external project's continued operation or governance.
 
 Interoperability with other registry-mediated methods is preserved: the resource-type set (§3.2) is the shared open convention, and a verifier that trusts a resolver can resolve any well-formed DID of any registry-mediated method it is configured for. This method neither requires nor forbids interoperation with other registries; federation is out of scope for this specification (see §4.2.1).
 
