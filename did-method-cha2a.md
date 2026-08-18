@@ -40,12 +40,7 @@ did:cha2a:publisher:example-marketplace.com
 
 ### 1.2 Relationship to other registry-mediated methods
 
-Registry-mediated DID methods (a registry assigns the DID, holds the controller signing key, and resolves DID Documents over HTTP) form a small family. This method shares that family's trust semantics and resource-type conventions (see §3.2) for interoperability, but is an **independent registration**:
-
-1. **Jurisdictional deployment.** The reference Registry is deployed and operated domestically (compliancehub.cn), keeping registered resource metadata within the operator's domestic compliance boundaries. Deployment jurisdiction is a property of the instance, not the method, but the method is specified and maintained by the same domestic maintainer, which is a deliberate and documented choice.
-2. **Independent governance.** The method name, specification, and maintenance track are owned independently, so that the ecosystem's identity layer does not depend on any single external project's continued operation or governance.
-
-Interoperability with other registry-mediated methods is preserved: the resource-type set (§3.2) is the shared open convention, and a verifier that trusts a resolver can resolve any well-formed DID of any registry-mediated method it is configured for. This method neither requires nor forbids interoperation with other registries; federation is out of scope for this specification (see §4.2.1).
+Registry-mediated DID methods (a registry assigns the DID, holds the controller signing key, and resolves DID Documents over HTTP) form a small family. This method is an **independent registration**: it has its own name, specification, and reference implementation, deployed domestically at compliancehub.cn. The resource-type set (§3.2) follows the shared open convention of the family for interoperability; a verifier that trusts a resolver can resolve any well-formed DID of any registry-mediated method it is configured for. This method neither requires nor forbids interoperation with other registries; federation is out of scope for this specification (see §4.2.1).
 
 ## 2. Method Name
 
