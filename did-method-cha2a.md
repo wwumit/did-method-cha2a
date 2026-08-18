@@ -1,4 +1,6 @@
-# The `did:cha2a` DID Method Specification
+# CHA2A — Agent Identity & Source Attestation Framework
+
+## The `did:cha2a` DID Method Specification
 
 **Version:** 0.1 (draft)
 **Status:** Draft — not yet registered in the W3C DID Extensions registry; reference implementation live at compliancehub.cn
