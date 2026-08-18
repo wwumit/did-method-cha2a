@@ -78,7 +78,7 @@ DID Core restricts the generic `method-specific-id` to `idchar` (no unescaped `/
 
 Registration governs *issuance*, not *resolution*: implementations MUST NOT reject a DID solely because the `resource-type` slot contains an unregistered value that otherwise conforms to the ABNF in §3.1. Implementations MAY return 404 Not Found if the Registry has no record of the named resource.
 
-The following resource types are defined, aligned with common agent-ecosystem conventions (the same open set used by `did:opena2a`, Apache-2.0, for interoperability):
+The following resource types are defined, aligned with the shared open convention of registry-mediated methods in the agent ecosystem (for interoperability):
 
 | Resource type | Description |
 |---|---|
