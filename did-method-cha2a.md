@@ -15,6 +15,8 @@
 
 The `did:cha2a` method serves an open ecosystem for agent-to-agent identity and source attestation. Its core component, a cha2a Registry, catalogues software resources that participate in agent-to-agent and human-to-agent interactions: skills, MCP servers, AI tools, LLMs, autonomous agents, and the publishers and authorities that vouch for them. Each catalogued resource is assigned a DID of the form `did:cha2a:<resource-type>:<resource-id>`.
 
+The `a2a` in the method name reflects that the method serves agent-to-agent interaction: beyond attesting skills and packages for human or agent use, `did:cha2a:agent` identifiers let agents mutually authenticate, discover capabilities, delegate work, and audit — a trust substrate for agent interconnection.
+
 The method is **registry-mediated**: resolving a `did:cha2a` DID returns a W3C DID Document whose verification key is the Registry's Ed25519 signing key. The trust model is explicit and stated honestly: a verifier trusts a `did:cha2a` DID exactly as much as it trusts the Registry resolver it was configured with. This design is deliberately identical in trust semantics to other registry-mediated methods, while remaining independent in name, specification, and implementation.
 
 The method supports a four-layer identity model:
@@ -85,7 +87,7 @@ The following resource types are defined, aligned with the shared open conventio
 | `registry` | A cha2a Registry instance itself. The reference registry is `did:cha2a:registry:compliancehub.cn`. |
 | `authority` | A naming authority (typically a domain) recognized as a root or delegated trust anchor. |
 | `publisher` | A vetted publisher of one or more catalogued resources. |
-| `agent` | An autonomous agent (A2A or otherwise) registered with the Registry. |
+| `agent` | An autonomous agent (A2A or otherwise) registered with the Registry. In agent-to-agent interaction its DID Document serves mutual authentication, capability discovery, delegation, and audit (service endpoints + trust proofs + disclosure/evidence). |
 | `package` | A bundle/plugin package (e.g. an npm bundle) containing one or more skills; the integrity and signing unit. A package record MAY reference its contained skills. |
 | `skill` | A skill catalogued in the Registry, identified by its official required name. A skill MAY carry `contentIdentity` (SHA-256 of the skill content, for cross-package identity: the same content repackaged in another package shares the identity; modified content does not), an optional `derivedFrom` (upstream content hash for honest derivation), and a `bundle` reference to the owning package DID. |
 | `mcp_server` | A Model Context Protocol server. |
