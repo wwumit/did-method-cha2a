@@ -87,7 +87,7 @@ The following resource types are defined, aligned with the shared open conventio
 | `registry` | A cha2a Registry instance itself. The reference registry is `did:cha2a:registry:compliancehub.cn`. |
 | `authority` | A naming authority (typically a domain) recognized as a root or delegated trust anchor. |
 | `publisher` | A vetted publisher of one or more catalogued resources. |
-| `agent` | An autonomous agent (A2A or otherwise) registered with the Registry. The DID **subject** is the individual agent (an instance MAY register several agents, each independently addressable); the DID Document's **controller** is the owning instance, which holds the trust anchor (Ed25519 signing key) shared by its agents — intra-instance agents form one trust domain. In inter-instance interaction the DID Document serves mutual authentication, capability discovery, delegation, and audit (service endpoints + trust proofs + disclosure/evidence). Sub-agents beneath an agent reuse the host runtime's parent-child mechanism and are not separate identifiers. |
+| `agent` | An autonomous agent (A2A or otherwise) registered with the Registry. The DID **subject** is the individual agent (an instance MAY register several agents, each independently addressable); the DID Document's **controller** is the owning instance, which holds the trust anchor (Ed25519 signing key) shared by its agents — intra-instance agents form one trust domain. In inter-instance interaction the DID Document serves mutual authentication, capability discovery, delegation, and audit (service endpoints + trust proofs + disclosure/evidence). The agent's `verificationMethod` also signs outbound calls (see §4.5), letting external services identify the caller. Sub-agents beneath an agent reuse the host runtime's parent-child mechanism and are not separate identifiers. |
 | `package` | A bundle/plugin package (e.g. an npm bundle) containing one or more skills; the integrity and signing unit. A package record MAY reference its contained skills. |
 | `skill` | A skill catalogued in the Registry, identified by its official required name. A skill MAY carry `contentIdentity` (SHA-256 of the skill content, for cross-package identity: the same content repackaged in another package shares the identity; modified content does not), an optional `derivedFrom` (upstream content hash for honest derivation), and a `bundle` reference to the owning package DID. |
 | `mcp_server` | A Model Context Protocol server. |
@@ -145,6 +145,19 @@ A `did:cha2a` DID is deactivated by transitioning the underlying resource record
 #### 4.4.1 Deactivation vs. credential revocation
 
 Deactivation says the *subject* has been retired and is no longer a valid identifier. Credential revocation says a *specific signed assertion about a still-valid subject* has been revoked. A DID MAY be active while specific credentials issued for it are revoked, and a DID MAY be deactivated while previously-issued credentials remain technically verifiable. A verifier MUST NOT rely on a credential for any new authorization decision once its subject DID has been deactivated.
+
+### 4.5 Caller authentication (outbound calls)
+
+When a skill or agent calls an external service (a SaaS API, an MCP server, a billing endpoint), the external service identifies the caller via request-bound DID signatures. The caller's `verificationMethod` (the agent DID's key) is used for request signing, not only for trust proofs:
+
+```
+X-DID:       <did:cha2a:agent:...>   ; caller identity (subject = agent)
+X-DID-Sig:   <Ed25519 signature>     ; over method + params + timestamp + nonce
+X-DID-TS:    <ISO-8601 timestamp>
+X-DID-Nonce: <random value>
+```
+
+The signature input MUST bind the request (method, parameters, timestamp, nonce) to prevent tampering and replay; a bare identity claim without a request-bound signature is not sufficient. An external service verifies in three steps using only the discovery public key (no registry integration required): (1) resolve the DID to its DID Document, (2) verify the signature against the document's `verificationMethod`, (3) optionally consult the caller's certification level (L0-L4) for differentiated authorization. API keys, when present, remain the channel credential; the DID signature is the caller identity — the two layers coexist.
 
 ## 5. DID Document Structure
 
