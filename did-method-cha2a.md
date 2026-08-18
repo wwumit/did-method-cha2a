@@ -86,7 +86,8 @@ The following resource types are defined, aligned with the shared open conventio
 | `authority` | A naming authority (typically a domain) recognized as a root or delegated trust anchor. |
 | `publisher` | A vetted publisher of one or more catalogued resources. |
 | `agent` | An autonomous agent (A2A or otherwise) registered with the Registry. |
-| `skill` | A skill (skill package) catalogued in the Registry. |
+| `package` | A bundle/plugin package (e.g. an npm bundle) containing one or more skills; the integrity and signing unit. A package record MAY reference its contained skills. |
+| `skill` | A skill catalogued in the Registry, identified by its official required name. A skill MAY carry `contentIdentity` (SHA-256 of the skill content, for cross-package identity: the same content repackaged in another package shares the identity; modified content does not), an optional `derivedFrom` (upstream content hash for honest derivation), and a `bundle` reference to the owning package DID. |
 | `mcp_server` | A Model Context Protocol server. |
 | `ai_tool` | A generic AI tool catalogued in the Registry. |
 | `llm` | An LLM endpoint or model catalogued in the Registry. |
