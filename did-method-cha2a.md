@@ -120,20 +120,20 @@ Content-Type:    application/did+ld+json
 Cache-Control:   public, max-age=300
 ```
 
-If the resource named by the DID is not registered, the Registry MUST reply `404 Not Found` with a JSON body of the form `{"error": "resource not found: <type>/<id>"}`. If the DID does not conform to the syntax in §3.1, the Registry MUST reply `400 Bad Request` with a JSON body identifying the syntactic defect.
+If the resource named by the DID is not registered, the Registry MUST reply `404 Not Found` with a JSON body of the form `{"error": "resource not found: <type>/<id>"}`. A DID that violates the §3.1 syntax MUST be answered with `400 Bad Request` and a JSON body naming the defect.
 
 Resolvers MAY cache successful resolutions per the `Cache-Control` header; resolvers SHOULD NOT cache 4xx responses.
 
 #### 4.2.1 Federation
 
-The method permits federation: more than one cha2a Registry deployment MAY exist, and each deployment MAY resolve any well-formed `did:cha2a` DID. The trust model under federation is the same as the single-registry case: a verifier trusts the resolved DID Document exactly as much as it trusts the Registry resolver it was configured with. A federated deployment MUST NOT be assumed to trust or relay data to any other registry unless explicitly configured to do so.
+The method permits federation: more than one cha2a Registry deployment MAY exist, and each deployment MAY resolve any well-formed `did:cha2a` DID. Under federation the trust semantics do not change: whatever resolver a verifier is configured with is the trust anchor for the documents it returns. A federated deployment MUST NOT be assumed to trust or relay data to any other registry unless explicitly configured to do so.
 
 ### 4.3 Update
 
-1. **Resource metadata update.** A publisher updates the metadata of a resource they control through an authenticated Registry endpoint. The DID itself does not change; the `updated` field of the returned DID Document reflects the most recent metadata update.
+1. **Resource metadata update.** A publisher may change the metadata of a resource they control through an authenticated Registry endpoint. The DID itself does not change; the `updated` field of the returned DID Document reflects the most recent metadata update.
 2. **Signing key rotation.** The Registry's Ed25519 signing key — the controller key for every DID it resolves — is rotated through an internal endpoint. A rotation creates a new key version and an explicit overlap period (default seven days) during which both old and new keys are valid for verification. The Registry's `/.well-known/cha2a` discovery document lists all currently-valid signing keys in `publicKeys`.
 
-Verifiers MUST consult the `publicKeys` array from `/.well-known/cha2a` (not a single hardcoded key) when verifying signatures against a `did:cha2a` DID. A signature is valid if it verifies against any currently-valid key.
+Verifiers MUST consult the `publicKeys` array from `/.well-known/cha2a` (not a single hardcoded key) when verifying signatures against a `did:cha2a` DID. A signature is accepted when it verifies under any key that the discovery document currently lists as valid.
 
 ### 4.4 Deactivate
 
@@ -141,7 +141,7 @@ A `did:cha2a` DID is deactivated by transitioning the underlying resource record
 
 #### 4.4.1 Deactivation vs. credential revocation
 
-Deactivation says the *subject* has been retired and is no longer a valid identifier. Credential revocation says a *specific signed assertion about a still-valid subject* has been revoked. A DID MAY be active while specific credentials issued for it are revoked, and a DID MAY be deactivated while previously-issued credentials remain technically verifiable. Verifiers SHOULD treat a credential whose subject DID is deactivated as untrusted for any new authorization decision.
+Deactivation says the *subject* has been retired and is no longer a valid identifier. Credential revocation says a *specific signed assertion about a still-valid subject* has been revoked. A DID MAY be active while specific credentials issued for it are revoked, and a DID MAY be deactivated while previously-issued credentials remain technically verifiable. A verifier MUST NOT rely on a credential for any new authorization decision once its subject DID has been deactivated.
 
 ## 5. DID Document Structure
 
@@ -236,9 +236,9 @@ A cha2a Registry SHOULD expose a discovery document at `/.well-known/cha2a` adve
 
 ## 9. Versioning and Change Process
 
-Changes to this specification are tracked in the repository's `CHANGELOG.md`. Substantive changes (changes to the ABNF, the registered resource types, the operation surface, the DID Document shape, or the security model) SHALL be accompanied by a version bump and a pull request that requires review by the editor(s) listed in `MAINTAINERS.md` and a 7-day quiet period before merge.
+Revisions to this specification are recorded in the repository's `CHANGELOG.md`. Substantive changes (changes to the ABNF, the registered resource types, the operation surface, the DID Document shape, or the security model) SHALL be accompanied by a version bump and a pull request that requires review by the editor(s) listed in `MAINTAINERS.md` and a 7-day quiet period before merge.
 
-Non-substantive changes (editorial, typographical, link updates) MAY be merged without a quiet period.
+Editorial changes (typos, links, wording) MAY merge without the quiet period.
 
 ## 10. References
 
