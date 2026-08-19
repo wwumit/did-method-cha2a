@@ -233,10 +233,26 @@ A cha2a Registry SHOULD expose a discovery document at `/.well-known/cha2a` adve
 }
 ```
 
+### 4.6 Certification levels (L0-L4)
+
+A certification level is a verifier-facing signal about a registered resource, determined by the **verifier's local policy** — never by issuer declaration alone and never by any mutual-recognition agreement between registries:
+
+| Level | Meaning | Basis (per resource metadata) |
+|---|---|---|
+| L0 | unverified | no declaration (default) |
+| L1 | integrity | content fingerprint (contentIdentity/contentHash) |
+| L2 | source | L1 + author attribution |
+| L3 | issuance | L2 + publisher/store attestation (e.g. a marketplace or verifier that reviewed the listing) |
+| L4 | ecosystem | L3 + evidence/disclosure consistency (multi-party verifiedBy, disclosure contract) |
+
+A verifier decides which levels to accept by enumerating the publishers and attestations it trusts in its local policy — the same principle as verifying signatures against a configured resolver's key set. Whether one marketplace recognizes another marketplace's issuance is a local policy question, not a protocol-level interop agreement. Levels are computed from registered metadata; absence of a declaration yields L0, which is not a trust verdict but a statement that nothing has been attested yet.
+
 ## 6. Security Considerations
 
 - **Registry-mediated trust.** The method is not fully decentralized in the sense of `did:key` or `did:peer`. A verifier's trust in a resolved DID is exactly its trust in the configured Registry resolver. This is stated honestly; deployments SHOULD document their resolver choice.
-- **Key rotation.** Rotation MUST create an explicit overlap period and advertise all valid keys in the discovery document; verifiers MUST NOT hardcode a single key.
+- **Key rotation.** Rotation MUST create an explicit overlap period and advertise all valid keys in the discovery document; verifiers MUST NOT hardcode a single key. DID Documents SHOULD declare `rotationKeys` and `nextUpdate` so a controller update immediately invalidates the prior key version.
+- **Revocation propagation.** After a revocation, resolvers and caches MUST invalidate within a bounded, documented TTL so that an L2+ badge turns red within an acceptable window — revocation must be a hard propagation requirement, not a post-hoc discovery. Caches SHOULD NOT serve 4xx results.
+- **Transparency log.** Product signatures SHOULD go through a public transparency log (e.g. Sigstore/Rekor) so the signing time of an artifact is auditable and a compromised key's affected window can be reconstructed.
 - **Compromise of Registry signing key.** If the Registry's Ed25519 key is compromised, all DIDs resolved by that Registry are affected. Deployments SHOULD support key revocation and rotation procedures and publish an incident/advisory channel in the discovery document (`advisory-feed` capability).
 - **Delegation boundaries.** A Registry-issued signature attests to the Registry's registration record for the subject, not to the subject's runtime behavior. Trust proofs and badges attest to registered metadata; runtime authorization decisions require additional evidence.
 - **Post-quantum considerations.** Deployments MAY additionally publish a hybrid post-quantum public key in the discovery document (e.g. ML-DSA) alongside Ed25519; verifiers SHOULD accept either for now, and MUST NOT treat the presence of a PQC key as mandatory until the ecosystem standardizes on it.
