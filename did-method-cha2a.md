@@ -243,7 +243,9 @@ A certification level is a verifier-facing signal about a registered resource, d
 | L1 | integrity | content fingerprint (contentIdentity/contentHash) |
 | L2 | source | L1 + author attribution |
 | L3 | issuance | L2 + publisher/store attestation (e.g. a marketplace or verifier that reviewed the listing) |
-| L4 | ecosystem | L3 + evidence/disclosure consistency (multi-party verifiedBy, disclosure contract) |
+| L4 | ecosystem | L3 + ≥2 independent verifiers (distinct verifier DIDs), each with a structured `verifiedBy` entry, + disclosure consistency |
+
+**L4 multi-verification.** L4 requires at least two **independent** verifiers (distinct verifier DIDs), each recording a structured `verifiedBy` entry (`verifier` DID, `method`, `result`, `at`, `evidenceRef`). Cross-verification is **invitation-based**: verifier A invites verifier B to independently re-verify; both entries are required and each references an auditable evidence store. A single entity acting under two identities does not satisfy independence. L4 therefore reflects an invitation-based consensus of multiple verifiers, not a unilateral declaration.
 
 A verifier decides which levels to accept by enumerating the publishers and attestations it trusts in its local policy — the same principle as verifying signatures against a configured resolver's key set. Whether one marketplace recognizes another marketplace's issuance is a local policy question, not a protocol-level interop agreement. Levels are computed from registered metadata; absence of a declaration yields L0, which is not a trust verdict but a statement that nothing has been attested yet.
 
