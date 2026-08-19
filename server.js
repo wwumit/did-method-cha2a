@@ -33,6 +33,8 @@ const DATA_DIR = path.join(__dirname, 'data');
 const KEYS_FILE = path.join(DATA_DIR, 'keys.json');
 const REGISTRY_FILE = path.join(DATA_DIR, 'registry.json');
 const REVOCATIONS_FILE = path.join(DATA_DIR, 'revocations.json');
+const SUBMISSIONS_FILE = path.join(DATA_DIR, 'submissions.json');
+const CATALOG_FILE = '/var/www/dshlib-store/catalog.json';
 
 // ---- helpers -------------------------------------------------------------
 
@@ -101,10 +103,15 @@ const LEVEL_NAMES = ['L0 unverified', 'L1 integrity', 'L2 source', 'L3 issuance'
 function levelOf(record) {
   const m = record.metadata || {};
   let level = 0;
-  if (m.contentHash) level = Math.max(level, 1);               // L1 integrity
+  if (m.contentHash || m.contentIdentity) level = Math.max(level, 1);  // L1 integrity
   if (m.author) level = Math.max(level, 2);                    // L2 source
   if (m.publisher || m.store) level = Math.max(level, 3);      // L3 issuance
-  if (m.evidence || m.verifiedBy) level = Math.max(level, 4);  // L4 ecosystem
+  // L4 ecosystem: requires L3 base (issuance) + ≥2 independent verifiers (distinct DIDs)
+  // 递进原则：L4 不能跳过 L2/L3——多验证方只是在已有发行背书之上再叠加独立验证
+  if (level >= 3 && Array.isArray(m.verifiedBy) && m.verifiedBy.length >= 2) {
+    const dids = new Set(m.verifiedBy.map((v) => v.verifier).filter(Boolean));
+    if (dids.size >= 2) level = Math.max(level, 4);
+  }
   return level;
 }
 
@@ -141,6 +148,11 @@ function buildDidDocument(record) {
 }
 
 // ---- trust proof -----------------------------------------------------------
+
+function stripCatalogMeta(p) {
+  const { name, title, description, author, source, version, stars, tags, did } = p;
+  return { name, title, description, author, source, version, stars, tags, did };
+}
 
 function issueTrustProof(did) {
   const keys = ensureKeys();
@@ -312,9 +324,11 @@ const server = http.createServer(async (req, res) => {
   const badgeM = /^\/badge\/([a-z][a-z0-9_]*)\/(.+)$/.exec(p);
   if (req.method === 'GET' && badgeM) {
     const reg = loadRegistry();
-    const record = reg.records[`${badgeM[1]}/${badgeM[2]}`];
+    const id = decodeURIComponent(badgeM[2]);
+    const record = reg.records[`${badgeM[1]}/${id}`];
     if (!record) return send(res, 404, { error: `resource not found: ${badgeM[1]}/${badgeM[2]}` });
-    return send(res, 200, badgeSvg(record), 'image/svg+xml');
+    res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=60' });
+    return res.end(badgeSvg(record));
   }
 
   // Revoke
@@ -335,6 +349,64 @@ const server = http.createServer(async (req, res) => {
   // Revocations list
   if (req.method === 'GET' && p === '/api/v1/trust/revocations') {
     return send(res, 200, loadRevocations());
+  }
+
+  // dshlib 提交队列（作者自助上架申请）
+  if (req.method === 'POST' && p === '/api/dshlib/submissions') {
+    const body = await readBody(req);
+    const pkg = String(body.pkg || '').trim();
+    const type = String(body.type || 'npm').trim();
+    if (!pkg) return send(res, 400, { error: 'pkg is required' });
+    const subs = readJSON(SUBMISSIONS_FILE, { submissions: [] });
+    subs.submissions.push({
+      id: 'sub-' + Date.now().toString(36),
+      type, pkg,
+      author: String(body.author || '').trim(),
+      desc: String(body.desc || '').trim(),
+      submittedAt: body.submittedAt || new Date().toISOString(),
+      status: 'pending',
+    });
+    writeJSON(SUBMISSIONS_FILE, subs);
+    return send(res, 201, { ok: true, id: subs.submissions[subs.submissions.length - 1].id });
+  }
+  if (req.method === 'GET' && p === '/api/dshlib/submissions') {
+    return send(res, 200, readJSON(SUBMISSIONS_FILE, { submissions: [] }));
+  }
+
+  // ── dshlib 开放 API（只读，生态消费）──
+  if (req.method === 'GET' && p === '/api/dshlib/catalog') {
+    const cat = readJSON(CATALOG_FILE, { plugins: [] });
+    const tag = url.searchParams.get('tag');
+    const level = url.searchParams.get('level');
+    let list = cat.plugins || [];
+    if (tag) list = list.filter((x) => (x.tags || []).includes(tag));
+    if (level) list = list.filter((x) => (x.tags || []).includes(level));
+    return send(res, 200, { count: list.length, plugins: list.map(stripCatalogMeta) });
+  }
+  if (req.method === 'GET' && p.startsWith('/api/dshlib/catalog/')) {
+    const name = decodeURIComponent(p.slice('/api/dshlib/catalog/'.length));
+    const cat = readJSON(CATALOG_FILE, { plugins: [] });
+    const hit = (cat.plugins || []).find((x) => x.name === name || x.package === name);
+    if (!hit) return send(res, 404, { error: 'plugin not found: ' + name });
+    return send(res, 200, hit);
+  }
+  if (req.method === 'GET' && p === '/api/dshlib/verification') {
+    const reg = loadRegistry();
+    const ver = Object.entries(reg.records)
+      .map(([k, r]) => ({ did: `did:cha2a:${r.type}:${r.id}`, id: r.id, evidence: (r.metadata || {}).verificationEvidence || null }))
+      .filter((x) => x.evidence);
+    return send(res, 200, { count: ver.length, verified: ver });
+  }
+  if (req.method === 'GET' && p === '/api/dshlib/stats') {
+    const cat = readJSON(CATALOG_FILE, { plugins: [] });
+    const ps = cat.plugins || [];
+    const cnt = (lvl) => ps.filter((p) => (p.tags || []).includes(lvl)).length;
+    return send(res, 200, {
+      total: ps.length,
+      levels: { L0: ps.filter((p) => !(p.tags || []).some((t) => /^L[1-4]$/.test(t))).length, L1: cnt('L1'), L2: cnt('L2'), L3: cnt('L3'), L4: cnt('L4') },
+      awesome: cnt('Awesome'),
+      source: 'dshlib store open API',
+    });
   }
 
   // Deactivate

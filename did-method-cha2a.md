@@ -265,6 +265,8 @@ The registry side attests "what is shipped is what was published" (L1 content fi
 | L1 integrity attestation | settlement before success publication |
 | revocation / deactivation | generation monotonicity / disposal fail-closed |
 
+**Verifier attribution.** When a host merely lists required anchor IDs (e.g. "require settlement against anchor X before publishing success"), the verifier of the anchor is the host's local policy — the same principle as §4.6 verifier-local policy. The runtime side attests "what runs matches the captured definition/generation"; whether that satisfies the host is a host-local decision. Implementations SHOULD expose which anchors the local policy trusts alongside any settlement result, mirroring the "trusted set" disclosure in §4.6.
+
 Implementations MAY evolve runtime attestation later; this section pins the shared terms so ecosystem proposals do not develop separate dialects.
 
 ## 6. Security Considerations

@@ -96,3 +96,18 @@ GET /api/v1/trust/revocations → {"revocations":[{did,reason,at}]}
 - /api/v1/stats/ 404 与 /api/ 404 均为原有应用行为（直连 8000/3000 复现）
 
 配置备份：/etc/nginx/sites-enabled/compliancehub.cn.bak-cha2a-20260818-231518
+
+## 1:N 包-技能关系与内容身份演示（2026-08-18 二次实测）
+
+## 19. 注册 package（完整性/签名单元，可含多技能）
+POST /api/v1/register {"type":"package","id":"compliancehub-skill-pack","metadata":{...contentHash}}
+→ did:cha2a:package:compliancehub-skill-pack (L2)
+
+## 20. 同一技能被两个包打包（contentIdentity 相同 → 同一内容、两个发行实例）
+skill-compliance         contentIdentity: sha256:skill-content-001  bundle: pack A
+skill-compliance-other    contentIdentity: sha256:skill-content-001  bundle: pack B
+→ trust lookup 比对：哈希一致 = 内容相同，实例/验证链不同
+
+## 21. 被修改后打包（contentIdentity 不同 + derivedFrom 声明 → 内容不同，诚实标注衍生）
+skill-compliance-fork     contentIdentity: sha256:skill-content-002  derivedFrom: sha256:skill-content-001
+→ name 相同但 contentIdentity 不同 = 明确的"不是同一个"，防同名冒充
