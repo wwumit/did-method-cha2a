@@ -1,7 +1,7 @@
 # did:cha2a — Registry (reference implementation)
 
 A zero-dependency reference implementation of the `did:cha2a` DID method
-(see the [method specification](../../CHA2A-DID-Method-规范草案-v0.1.md)).
+(see the [method specification](./did-method-cha2a.md)).
 
 `did:cha2a` is a registry-mediated identity method: `ch` abbreviates
 **complianceHub**, `a2a` denotes agent-to-agent. A `did:cha2a` identifier names
