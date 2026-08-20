@@ -196,7 +196,7 @@ function trustStatus(record) {
 
 // ---- badge (SVG, zero dependency) -------------------------------------------
 
-const LEVEL_COLORS = ['#9aa0a6', '#6aa84f', '#2f9e44', '#1971c2', '#9c36b5'];
+const LEVEL_COLORS = ['#9aa0a6', '#1aa7a0', '#1f6feb', '#8b5cf6', '#0d5c75'];  // 对齐 l0-l4 徽章图主色：灰/青/蓝/紫/深青
 function badgeSvg(record) {
   const level = levelOf(record);
   const color = LEVEL_COLORS[level];
@@ -206,7 +206,7 @@ function badgeSvg(record) {
   const w = 62 + label.length * 6.2;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w.toFixed(0)}" height="20">
   <rect width="100%" height="20" rx="3" fill="${bg}"/>
-  <text x="8" y="14" font-family="Helvetica,Arial,sans-serif" font-size="11" fill="#fff">${label}</text>
+  <text x="8" y="14" font-family="Helvetica,Arial,sans-serif" font-size="11" fill="${level === 4 && !revoked ? '#f5c518' : '#fff'}">${label}</text>
 </svg>`;
 }
 
@@ -273,6 +273,26 @@ const server = http.createServer(async (req, res) => {
     reg.records[key] = record;
     saveRegistry(reg);
     return send(res, 201, { did: `did:cha2a:${type}:${id}`, status: 'active', level: levelOf(record), levelName: LEVEL_NAMES[levelOf(record)], ...record });
+  }
+
+  // Update metadata (credential lifecycle: issuance → use → update → revocation)
+  // 只合并/覆盖 metadata，不改 type/id（身份不变）；可用于等级升级（如补 author→L2、publisher→L3）
+  if (req.method === 'POST' && p === '/api/v1/update') {
+    const body = await readBody(req);
+    const type = String(body.type || '').toLowerCase();
+    const id = String(body.id || '');
+    const metadata = body.metadata && typeof body.metadata === 'object' ? body.metadata : undefined;
+    if (!TYPE_RE.test(type)) return send(res, 400, { error: `invalid resource-type: ${type}` });
+    if (!ID_RE.test(id)) return send(res, 400, { error: `invalid resource-id: ${id}` });
+    const reg = loadRegistry();
+    const key = `${type}/${id}`;
+    const record = reg.records[key];
+    if (!record) return send(res, 404, { error: `resource not found: ${key}` });
+    if (record.status !== 'active') return send(res, 409, { error: `resource not active: ${key}` });
+    record.metadata = { ...(record.metadata || {}), ...(metadata || {}) };
+    record.updated = new Date().toISOString();
+    saveRegistry(reg);
+    return send(res, 200, { did: `did:cha2a:${type}:${id}`, status: 'active', level: levelOf(record), levelName: LEVEL_NAMES[levelOf(record)], ...record });
   }
 
   // Resolve (Read)
