@@ -12,11 +12,13 @@
  *   POST /api/v1/trust/revoke        Revoke  -> revoke trust (mark resource)
  *   GET  /api/v1/trust/revocations   Revocations list
  *   POST /api/v1/deactivate          Deactivate -> suspended/revoked/deprecated
+ *   POST /api/v1/evidence/register   Evidence credential register (subject/predicateType/verifier/result/evidenceRef)
+ *   GET  /api/v1/evidence/query      Evidence credential lookup (subject, optional verifier/predicateType filters)
  *
  * Certification levels (mapping of the DSH ecosystem proposal, annex C):
  *   L0 none | L1 content hash | L2 author | L3 publisher/store | L4 evidence
  *
- * Data: ./data/keys.json, ./data/registry.json, ./data/revocations.json
+ * Data: ./data/keys.json, ./data/registry.json, ./data/revocations.json, ./data/evidence.json
  * Zero dependencies: node:crypto + node:http only.
  */
 'use strict';
@@ -34,6 +36,7 @@ const KEYS_FILE = path.join(DATA_DIR, 'keys.json');
 const REGISTRY_FILE = path.join(DATA_DIR, 'registry.json');
 const REVOCATIONS_FILE = path.join(DATA_DIR, 'revocations.json');
 const SUBMISSIONS_FILE = path.join(DATA_DIR, 'submissions.json');
+const EVIDENCE_FILE = path.join(DATA_DIR, 'evidence.json');
 const CATALOG_FILE = '/var/www/dshlib-store/catalog.json';
 
 // ---- helpers -------------------------------------------------------------
@@ -96,6 +99,8 @@ function loadRegistry() { return readJSON(REGISTRY_FILE, { records: {} }); }
 function saveRegistry(reg) { writeJSON(REGISTRY_FILE, reg); }
 function loadRevocations() { return readJSON(REVOCATIONS_FILE, { revocations: [] }); }
 function saveRevocations(r) { writeJSON(REVOCATIONS_FILE, r); }
+function loadEvidence() { return readJSON(EVIDENCE_FILE, { credentials: [] }); }
+function saveEvidence(e) { writeJSON(EVIDENCE_FILE, e); }
 
 // ---- certification level (DSH proposal annex C, simplified) ----------------
 
@@ -236,7 +241,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'GET' && p === '/.well-known/cha2a') {
     const keys = ensureKeys();
     return send(res, 200, {
-      capabilities: ['trust-proof', 'trust-lookup', 'badge', 'revocation', 'deactivation'],
+      capabilities: ['trust-proof', 'trust-lookup', 'badge', 'revocation', 'deactivation', 'evidence'],
       endpoints: {
         didResolve: '/api/v1/did/{did}',
         trustLookup: '/api/v1/trust/query',
@@ -244,6 +249,8 @@ const server = http.createServer(async (req, res) => {
         trustRevoke: '/api/v1/trust/revoke',
         trustRevocations: '/api/v1/trust/revocations',
         deactivate: '/api/v1/deactivate',
+        evidenceRegister: '/api/v1/evidence/register',
+        evidenceQuery: '/api/v1/evidence/query',
       },
       publicKeys: [{
         version: keys.version,
@@ -427,6 +434,54 @@ const server = http.createServer(async (req, res) => {
       awesome: cnt('Awesome'),
       source: 'dshlib store open API',
     });
+  }
+
+  // ── 证据凭证（Evidence Record 摘要登记，evidence-record.md）──
+  // 只存凭证摘要（subject/predicateType/verifier/result/checkedAt/evidenceRef），不存证据本体；
+  // 独立 data/evidence.json，不混入 registry.json（trust 结构零改动）。
+  if (req.method === 'POST' && p === '/api/v1/evidence/register') {
+    const body = await readBody(req);
+    const subject = String(body.subject || '');
+    const predicateType = String(body.predicateType || '');
+    const verifier = String(body.verifier || '');
+    const result = String(body.result || '');
+    const checkedAt = String(body.checkedAt || new Date().toISOString());
+    const evidenceRef = String(body.evidenceRef || '');
+    const artifactDigest = body.artifactDigest && typeof body.artifactDigest === 'object' ? body.artifactDigest : undefined;
+    if (!DID_RE.test(subject)) return send(res, 400, { error: `invalid subject did: ${subject}` });
+    if (!/^https?:\/\//.test(predicateType)) return send(res, 400, { error: `invalid predicateType uri: ${predicateType}` });
+    if (!DID_RE.test(verifier)) return send(res, 400, { error: `invalid verifier did: ${verifier}` });
+    if (!result) return send(res, 400, { error: 'result is required' });
+    if (!/^https?:\/\//.test(evidenceRef)) return send(res, 400, { error: `invalid evidenceRef url: ${evidenceRef}` });
+    // 防冒充：验证者身份必须在 registry 可查（did:cha2a:verifier:* 已注册）
+    const vm = DID_RE.exec(verifier);
+    const reg = loadRegistry();
+    if (!reg.records[`${vm[1]}/${vm[2]}`]) {
+      return send(res, 409, { error: `verifier not registered: ${verifier}` });
+    }
+    const ev = loadEvidence();
+    const credential = {
+      id: 'cred-' + Date.now().toString(36) + '-' + crypto.randomBytes(3).toString('hex'),
+      subject, predicateType, verifier, result, checkedAt, evidenceRef,
+      ...(artifactDigest ? { artifactDigest } : {}),
+      created: new Date().toISOString(),
+    };
+    ev.credentials.push(credential);
+    saveEvidence(ev);
+    return send(res, 201, { ok: true, credential });
+  }
+
+  // 证据凭证查询（只读；可按 verifier/predicateType 过滤；trust/query 结构不变）
+  if (req.method === 'GET' && p === '/api/v1/evidence/query') {
+    const subject = url.searchParams.get('did') || url.searchParams.get('subject') || '';
+    const verifier = url.searchParams.get('verifier');
+    const predicateType = url.searchParams.get('predicateType');
+    if (!DID_RE.test(subject)) return send(res, 400, { error: `provide ?did= or ?subject= (valid did): ${subject}` });
+    const ev = loadEvidence();
+    let list = ev.credentials.filter((c) => c.subject === subject);
+    if (verifier) list = list.filter((c) => c.verifier === verifier);
+    if (predicateType) list = list.filter((c) => c.predicateType === predicateType);
+    return send(res, 200, { subject, count: list.length, credentials: list });
   }
 
   // Deactivate
