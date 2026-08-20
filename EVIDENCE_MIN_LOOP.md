@@ -77,10 +77,10 @@
 - [x] 实证记录已存档（本文件 §九）
 
 **实证链路（公网可查）**：
-- 凭证：`GET /api/v1/evidence/query?did=did:cha2a:package:cosmic-snail/dsh-travel-plan` → 1 条 test-result 凭证（verifier `did:cha2a:verifier:compliancehub.cn`，result=passed，evidenceRef 指向代管 JSON）
-- 证据：`https://compliancehub.cn/evidence/compliancehub.cn/cosmic-snail~dsh-travel-plan/test-result.json`（in-toto Statement v1 + test-result predicate，artifactDigest=sha256:d9da3217…）
+- 凭证：`GET /api/v1/evidence/query?did=did:cha2a:package:cosmic-snail/dsh-travel-plan` → 1 条 test-result 凭证（verifier `did:cha2a:verifier:dshlib`，result=passed，evidenceRef 指向代管 JSON）
+- 证据：`https://compliancehub.cn/evidence/dshlib/cosmic-snail~dsh-travel-plan/test-result.json`（in-toto Statement v1 + test-result predicate，artifactDigest=sha256:0f402070…）
 - 界面：`https://compliancehub.cn/store/verification/cosmic-snail~dsh-travel-plan.html`（证据凭证区块）
-- 验证者：`did:cha2a:verifier:compliancehub.cn`（capabilities: run-tests/integrity）
+- 验证者：`did:cha2a:verifier:dshlib`（capabilities: run-tests/integrity）
 
 ## 八、如何邀请其他人参与（参与设计）
 
@@ -111,7 +111,7 @@
 
 ## 七、需确认的（开工前）
 
-1. **verifier 身份**：dshlib 以 `did:cha2a:verifier:compliancehub.cn`（或复用现有 publisher 身份加 verifier 声明）登记——倾向独立 verifier 类型（规范 §5 已定义）
+1. **verifier 身份**：dshlib 以 `did:cha2a:verifier:dshlib`（或复用现有 publisher 身份加 verifier 声明）登记——倾向独立 verifier 类型（规范 §5 已定义）
 2. **evidenceRef 形态**：`https://compliancehub.cn/evidence/dshlib/dsh-travel-plan/test-result.json`，内容带可选 artifactDigest 哈希
 3. **凭证查询独立端点**：**新增 `GET /api/v1/evidence/query?did=X`**（可按 verifier/predicateType 过滤），**trust/query 原响应结构零改动**（保"现有服务零影响"）；verification 页下钻时由界面层调 evidence/query 聚合——摘要/明细分层，响应不膨胀
 4. **subject**：dsh-travel-plan（闭环已跑通的插件，可产出真实 test-result 证据）
