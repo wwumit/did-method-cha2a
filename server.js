@@ -14,6 +14,9 @@
  *   POST /api/v1/deactivate          Deactivate -> suspended/revoked/deprecated
  *   POST /api/v1/evidence/register   Evidence credential register (subject/predicateType/verifier/result/evidenceRef)
  *   GET  /api/v1/evidence/query      Evidence credential lookup (subject, optional verifier/predicateType filters)
+ *   POST /api/v1/phone/register      Phone directory: bind E.164 number to a registered agent DID
+ *   GET  /api/v1/phone/resolve       Number -> agent (caller addressing + trust summary)
+ *   GET  /api/v1/phone/lookup        DID -> numbers (public phonebook)
  *
  * Certification levels (mapping of the DSH ecosystem proposal, annex C):
  *   L0 none | L1 content hash | L2 author | L3 publisher/store | L4 evidence
@@ -27,6 +30,9 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { handleSession } = require('./session.js');   // session 管理模块（逻辑独立：绑定/凭证/定位）
+const { handleGroup } = require('./groups.js');      // 群聊模块（RCS 团队协作空间：群管理/广播）
+const { handlePhone, loadPhone, loadMessages, saveMessages, MSG_LIMIT } = require('./phone.js');   // phone 服务簇（号码簿/积分/用量/消息/附件）+ 共享存储层
 
 const PORT = parseInt(process.env.PORT || '8787', 10);
 const HOST = process.env.HOST || '127.0.0.1';
@@ -37,7 +43,16 @@ const REGISTRY_FILE = path.join(DATA_DIR, 'registry.json');
 const REVOCATIONS_FILE = path.join(DATA_DIR, 'revocations.json');
 const SUBMISSIONS_FILE = path.join(DATA_DIR, 'submissions.json');
 const EVIDENCE_FILE = path.join(DATA_DIR, 'evidence.json');
+// 活动：第一批开户送积分（前 N 个送 AMOUNT）
 const CATALOG_FILE = '/var/www/dshlib-store/catalog.json';
+const ADMIN_KEY = process.env.ADMIN_KEY || '';   // 管理操作鉴权（环境变量配置）
+
+// 管理操作校验：需请求头 X-Admin-Key 匹配（号码注册/停用等写操作）
+function requireAdmin(req, res) {
+  if (!ADMIN_KEY) { send(res, 503, { error: 'admin key not configured on server' }); return true; }
+  if (req.headers['x-admin-key'] !== ADMIN_KEY) { send(res, 401, { error: 'admin key required (X-Admin-Key)' }); return true; }
+  return null;
+}
 
 // ---- helpers -------------------------------------------------------------
 
@@ -52,6 +67,7 @@ function base58Encode(buf) {
 const TYPE_RE = /^[a-z][a-z0-9_]*$/;
 const ID_RE = /^[A-Za-z0-9._\-/@:]+$/;
 const DID_RE = /^did:cha2a:([a-z][a-z0-9_]*):([A-Za-z0-9._\-/@:]+)$/;
+const PHONE_RE = /^\+?[0-9]{4,15}$/;   // phone 服务簇共享（群聊/号码簿）；与 phone.js 内部定义一致
 const DEACTIVATE_STATUS = ['suspended', 'revoked', 'deprecated'];
 
 function readJSON(file, fallback) {
@@ -217,11 +233,16 @@ function badgeSvg(record) {
 
 // ---- HTTP server -------------------------------------------------------------
 
-function send(res, code, body, contentType) {
+function send(res, code, body, contentType, extraHeaders) {
   const text = typeof body === 'string' ? body : JSON.stringify(body);
   res.writeHead(code, {
     'Content-Type': contentType || 'application/json; charset=utf-8',
     'Cache-Control': 'public, max-age=300',
+    // CORS：允许浏览器端插件（dsh-phone 浮窗等）跨源消费开放 API
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Accept',
+    ...(extraHeaders || {}),
   });
   res.end(text);
 }
@@ -236,12 +257,20 @@ function readBody(req) {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${HOST}:${PORT}`);
   const p = url.pathname;
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Accept',
+    });
+    return res.end();
+  }
 
   // Discovery
   if (req.method === 'GET' && p === '/.well-known/cha2a') {
     const keys = ensureKeys();
     return send(res, 200, {
-      capabilities: ['trust-proof', 'trust-lookup', 'badge', 'revocation', 'deactivation', 'evidence'],
+      capabilities: ['trust-proof', 'trust-lookup', 'badge', 'revocation', 'deactivation', 'evidence', 'phone'],
       endpoints: {
         didResolve: '/api/v1/did/{did}',
         trustLookup: '/api/v1/trust/query',
@@ -251,6 +280,9 @@ const server = http.createServer(async (req, res) => {
         deactivate: '/api/v1/deactivate',
         evidenceRegister: '/api/v1/evidence/register',
         evidenceQuery: '/api/v1/evidence/query',
+        phoneRegister: '/api/v1/phone/register',
+        phoneResolve: '/api/v1/phone/resolve',
+        phoneLookup: '/api/v1/phone/lookup',
       },
       publicKeys: [{
         version: keys.version,
@@ -484,6 +516,15 @@ const server = http.createServer(async (req, res) => {
     return send(res, 200, { subject, count: list.length, credentials: list });
   }
 
+  // ── agent ↔ 会话绑定 / 凭证（逻辑独立模块 session.js）──
+  const sessionHandled = await handleSession(p, req, res, url, { loadRegistry, DID_RE, send, readBody, requireAdmin });
+  if (sessionHandled) return;
+  // ── 群聊（RCS 团队协作空间；逻辑独立模块 groups.js）──
+  // ── phone 服务簇（号码簿/积分/用量/消息/附件；逻辑独立模块 phone.js，只读身份核心）──
+  const phoneHandled = await handlePhone(p, req, res, url, { PHONE_RE, DID_RE, send, readBody, requireAdmin, loadRegistry, trustStatus, levelOf, LEVEL_NAMES });
+  if (phoneHandled) return;
+  const groupHandled = await handleGroup(p, req, res, url, { PHONE_RE, DID_RE, send, readBody, requireAdmin, loadRegistry, loadPhone, loadMessages, saveMessages, MSG_LIMIT, levelOf });
+  if (groupHandled) return;
   // Deactivate
   if (req.method === 'POST' && p === '/api/v1/deactivate') {
     const body = await readBody(req);
