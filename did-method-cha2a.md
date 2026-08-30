@@ -95,8 +95,31 @@ The following resource types are defined, aligned with the shared open conventio
 | `mcp_server` | A Model Context Protocol server. |
 | `ai_tool` | A generic AI tool catalogued in the Registry. |
 | `llm` | An LLM endpoint or model catalogued in the Registry. |
+| `org` | The **carrier layer** for agents: operates number ranges, reachability, relay delivery and inbox. An org is typically an enterprise, organization or individual that serves as the organizational-boundary entry point for agents. Number ranges are **authorized by the Registry** (see §3.3) — the Registry remains the neutral authority over numbers; an org is not the Registry itself. |
+| `provider` | An **application-layer service provider (SP)**: delivers concrete application services (e.g. RCS messaging/groups) that agents attach to. An agent MAY attach multiple services across different orgs/providers (a "service-domain radiation" model: one identity, many service attachments). |
+| `verifier` | An **independent verification entity** that performs and attests to checks on registered subjects. A verifier MUST be registered and resolvable to satisfy §4.6 (every `verifiedBy` entry references a registered verifier DID). Optional capability declarations and verification history are carried in metadata. |
 
 Additions to this table are made by pull request against this repository.
+
+### 3.3 Service attachment and number-range grant
+
+An agent record MAY carry a `metadata.services` array with two element shapes:
+
+1. **String** — a plain capability label (e.g. `"telephony"`). No reference, no validation; any org/agent MAY declare capabilities this way.
+2. **Object** — an attachment to a concrete org or provider:
+   - `{ "type": "telephony", "org": "did:cha2a:org:<id>", "number": "+86..." }`
+   - `{ "type": "messaging", "sp": "did:cha2a:provider:<id>" }`
+
+Validation rules (MUST, enforced on both register and update):
+- An object entry MUST reference a **registered** org/provider DID (dangling references are rejected).
+- An entry that attaches an `org` AND carries a `number` MUST have that number fall within one of the org's **granted number ranges** — numbers belong to the Registry, ranges are authorized to orgs.
+- A provider-only entry's number (if any) is NOT range-checked (providers do not operate numbers; left as an extension point).
+
+Numbers are a Registry asset: the Registry is the neutral authority over number ownership, and authorizes ranges to orgs for operation.
+- `POST /api/v1/number-range/grant` — Registry issues a `number-range` grant to an org: request `{ "grantee": "did:cha2a:org:<id>", "range": "+86138" }` (international prefix form). Administrative operation (X-Admin-Key); disabled (503) when no admin key is configured. Rejected when: grantee is not an org, org not registered, malformed range, duplicate active grant (409).
+- `GET /api/v1/number-ranges?grantee=<did>` — public lookup of an org's granted ranges (the number authority is publicly auditable).
+
+The grant record is a first-class predicate (`number-range-grant`), usable as L2+ carrier evidence in the trust model.
 
 ## 4. Method Operations
 
@@ -160,6 +183,8 @@ X-DID-Nonce: <random value>
 ```
 
 The signature input MUST bind the request (method, parameters, timestamp, nonce) to prevent tampering and replay; a bare identity claim without a request-bound signature is not sufficient. An external service verifies in three steps using only the discovery public key (no registry integration required): (1) resolve the DID to its DID Document, (2) verify the signature against the document's `verificationMethod`, (3) optionally consult the caller's certification level (L0-L4) for differentiated authorization. API keys, when present, remain the channel credential; the DID signature is the caller identity — the two layers coexist.
+
+**Agent self-held key (`#agent-key`).** An agent MAY register its own Ed25519 public key (private key never leaves the agent's device) via `POST /api/v1/agent/key/register` (the agent DID must already be registered). The DID Document then exposes an additional verification method `#agent-key` with **controller = the agent DID itself**, alongside the default `#registry-key` (controller = the Registry). `#agent-key` is **appended, never replacing** `#registry-key`. Signatures by `#agent-key` attest "this agent is speaking" (self-attestation), not merely "the Registry has a record for this agent"; external services MAY prefer `#agent-key` for outbound-call identity (§4.5) when present. The agent-key serves as identity-anchor evidence (L1 subject attestation, §4.6).
 
 ## 5. DID Document Structure
 
@@ -258,6 +283,41 @@ A verifier decides which levels to accept by enumerating the publishers and atte
 **Verifier-as-publisher (explicit case).** A common deployment has a single entity acting as both verifier and L3 issuer (e.g. a store that verifies listings and publishes them under its own `publisher` DID). This is deliberate and consistent with local-policy verification: the meaning is "**this verifier's trusted set includes that publisher's signatures**", not "that publisher stamped the listing". Readers MUST NOT interpret an L3 badge as a third-party seal independent of the verifier's policy; implementations SHOULD expose which publisher signatures the local policy trusts alongside the displayed level.
 
 ### 4.7 Runtime attestation vocabulary (reserved)
+#### Evidence credentials, verification status, and predicate namespace
+
+**Evidence credential.** A verifier's predicate-level check on a subject is recorded as an evidence credential:
+
+| Field | Description |
+|---|---|
+| `subject` | did:cha2a DID of the verified subject |
+| `predicateType` | URI of the claimed predicate (see namespace below) |
+| `verifier` | Registered verifier DID (hard requirement, above) |
+| `result` | pass / fail / partial |
+| `checkedAt` | ISO-8601 timestamp |
+| `evidenceRef` | Real, reachable URL to the auditable evidence |
+| `artifactDigest` | Optional SHA-256 digest binding the evidence artifact (anti-tamper) |
+
+Credentials are predicate-scoped by subject type: `identity-anchor` / `owner-binding` / `number-binding` / `delegation` → agent; `number-range-grant` → org; in-toto/attestation → artifacts (package/skill). Predicate-subject mismatches are rejected.
+
+**Principal verification status.** Trust lookups SHOULD report the subject's verification status (aligned with ARIA verificationStatus):
+
+- `self-declared` — subject's own declarations only (metadata); default for L0/L1.
+- `registry-confirmed` — Registry-issued or verified evidence exists (key registration, number-range grants, owner/number bindings); basis for L2+.
+- `legal-verified` — legal-entity verification; reserved for commercial phases, not yet produced.
+
+Status is orthogonal to level: level says how strong the evidence is; status says whether it was self-declared or confirmed.
+
+**Predicate namespace.** Cha2a subject predicates use `https://cha2a.org/predicate/`:
+
+- `identity-anchor` (agent, L1) — key anchoring: public key registered, private key device-held.
+- `owner-binding` (agent, L2) — subject ↔ owner (org/person) binding, confirmed by a verifier.
+- `number-binding` (agent, L2) — number ↔ agent binding.
+- `number-range-grant` (org, L2+) — Registry-authorized number range.
+- `delegation` (agent, L3) — endorsement/delegation chain.
+
+Predicate URIs: `https://cha2a.org/predicate/<name>/v1`. Implementations MAY accept predicate keywords (short names) for compatibility; whitelist matching is by keyword (case-insensitive contains).
+
+
 
 The registry side attests "what is shipped is what was published" (L1 content fingerprint). A complementary runtime side attests "what runs is what was verified" (e.g. a host runtime binding a captured tool definition and a monotonic anchor generation at execution, as discussed in ecosystem proposals on ToolRuntime settlement anchors). To keep vocabulary aligned across proposals, this specification reserves the following mapping — it is vocabulary reservation only, no runtime behavior is defined here:
 
@@ -278,6 +338,8 @@ Implementations MAY evolve runtime attestation later; this section pins the shar
 - **Revocation propagation.** After a revocation, resolvers and caches MUST invalidate within a bounded, documented TTL so that an L2+ badge turns red within an acceptable window — revocation must be a hard propagation requirement, not a post-hoc discovery. Caches SHOULD NOT serve 4xx results.
 - **Credential lifecycle.** Signed attestations (trust proofs) are treated as agent credentials with a lifecycle: issuance (credential issuer), use (presentation during authentication), update, and revocation. Revocation MUST propagate within the bounded TTL (§4.6); credentials SHOULD carry type and validity metadata.
 - **Delegation-chain verification.** Delegation is chain-aware: each hop (delegator → delegated agent) carries a delegation credential with the delegator, authorization scope, and a chain reference; a verifier MUST validate each hop's authorization along the chain (aligned with GB/Z 185.3 delegation-chain verification).
+- **Fail-closed verification.** Registry unavailability (network error, timeout, error response) MUST be treated as **rejection**, never acceptance: the claim is NOT considered valid and the subject MUST NOT be presented as trusted. Bare identity claims without a verifiable signature or resolvable trust state are insufficient for trust decisions. This aligns with the ARIA/MolTrust fail-closed principle: trust decisions require positive confirmation; absence of confirmation is denial.
+- **Revocation checking in verification flows.** A consumer (UI, relay, or external verifier) presenting trust information about a subject MUST surface revocation state: resolve/trust lookups include revocation state (`revoked`, `active`, `suspicious`), and consumers MUST display or act on it — a revoked or inactive subject MUST NOT be presented as trusted. This is the consumer-side counterpart of §4.4.1.
 - **Transparency log.** Product signatures SHOULD go through a public transparency log (e.g. Sigstore/Rekor) so the signing time of an artifact is auditable and a compromised key's affected window can be reconstructed.
 - **Compromise of Registry signing key.** If the Registry's Ed25519 key is compromised, all DIDs resolved by that Registry are affected. Deployments SHOULD support key revocation and rotation procedures and publish an incident/advisory channel in the discovery document (`advisory-feed` capability).
 - **Delegation boundaries.** A Registry-issued signature attests to the Registry's registration record for the subject, not to the subject's runtime behavior. Trust proofs and badges attest to registered metadata; runtime authorization decisions require additional evidence.
@@ -296,7 +358,7 @@ Implementations MAY evolve runtime attestation later; this section pins the shar
 
 ## 9. Versioning and Change Process
 
-Revisions to this specification are recorded in the repository's `CHANGELOG.md`. Substantive changes (changes to the ABNF, the registered resource types, the operation surface, the DID Document shape, or the security model) SHALL be accompanied by a version bump and a pull request that requires review by the editor(s) listed in `MAINTAINERS.md` and a 7-day quiet period before merge.
+Revisions to this specification are recorded in the repository's `CHANGELOG.md`. Substantive changes (changes to the ABNF, the registered resource types, the operation surface, the DID Document shape, or the security model) SHALL be accompanied by a version bump and a pull request that requires review by the editor(s) listed in `MAINTAINERS.md` and a **3-day quiet period** before merge (reduced from 7 days in v0.2: the maintainer is the sole editor — self-review — so the quiet period serves as a cooling-off / community-notice window rather than an external-review dependency; public discussion continues indefinitely via the proposal thread, 3 days is the merge gate only).
 
 Editorial changes (typos, links, wording) MAY merge without the quiet period.
 
