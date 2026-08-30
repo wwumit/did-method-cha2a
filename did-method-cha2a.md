@@ -333,23 +333,71 @@ Implementations MAY evolve runtime attestation later; this section pins the shar
 
 ## 6. Security Considerations
 
-- **Registry-mediated trust.** The method is not fully decentralized in the sense of `did:key` or `did:peer`. A verifier's trust in a resolved DID is exactly its trust in the configured Registry resolver. This is stated honestly; deployments SHOULD document their resolver choice.
-- **Key rotation.** Rotation MUST create an explicit overlap period and advertise all valid keys in the discovery document; verifiers MUST NOT hardcode a single key. DID Documents SHOULD declare `rotationKeys` and `nextUpdate` so a controller update immediately invalidates the prior key version.
-- **Revocation propagation.** After a revocation, resolvers and caches MUST invalidate within a bounded, documented TTL so that an L2+ badge turns red within an acceptable window — revocation must be a hard propagation requirement, not a post-hoc discovery. Caches SHOULD NOT serve 4xx results.
-- **Credential lifecycle.** Signed attestations (trust proofs) are treated as agent credentials with a lifecycle: issuance (credential issuer), use (presentation during authentication), update, and revocation. Revocation MUST propagate within the bounded TTL (§4.6); credentials SHOULD carry type and validity metadata.
-- **Delegation-chain verification.** Delegation is chain-aware: each hop (delegator → delegated agent) carries a delegation credential with the delegator, authorization scope, and a chain reference; a verifier MUST validate each hop's authorization along the chain (aligned with GB/Z 185.3 delegation-chain verification).
-- **Fail-closed verification.** Registry unavailability (network error, timeout, error response) MUST be treated as **rejection**, never acceptance: the claim is NOT considered valid and the subject MUST NOT be presented as trusted. Bare identity claims without a verifiable signature or resolvable trust state are insufficient for trust decisions. This aligns with the ARIA/MolTrust fail-closed principle: trust decisions require positive confirmation; absence of confirmation is denial.
-- **Revocation checking in verification flows.** A consumer (UI, relay, or external verifier) presenting trust information about a subject MUST surface revocation state: resolve/trust lookups include revocation state (`revoked`, `active`, `suspicious`), and consumers MUST display or act on it — a revoked or inactive subject MUST NOT be presented as trusted. This is the consumer-side counterpart of §4.4.1.
-- **Transparency log.** Product signatures SHOULD go through a public transparency log (e.g. Sigstore/Rekor) so the signing time of an artifact is auditable and a compromised key's affected window can be reconstructed.
-- **Compromise of Registry signing key.** If the Registry's Ed25519 key is compromised, all DIDs resolved by that Registry are affected. Deployments SHOULD support key revocation and rotation procedures and publish an incident/advisory channel in the discovery document (`advisory-feed` capability).
-- **Delegation boundaries.** A Registry-issued signature attests to the Registry's registration record for the subject, not to the subject's runtime behavior. Trust proofs and badges attest to registered metadata; runtime authorization decisions require additional evidence.
-- **Post-quantum considerations.** Deployments MAY additionally publish a hybrid post-quantum public key in the discovery document (e.g. ML-DSA) alongside Ed25519; verifiers SHOULD accept either for now, and MUST NOT treat the presence of a PQC key as mandatory until the ecosystem standardizes on it.
+### 6.1 Registry-mediated trust
+
+The method is not fully decentralized in the sense of `did:key` or `did:peer`. A verifier's trust in a resolved DID is exactly its trust in the configured Registry resolver. This is stated honestly; deployments SHOULD document their resolver choice.
+
+### 6.2 Key rotation
+
+Rotation MUST create an explicit overlap period and advertise all valid keys in the discovery document; verifiers MUST NOT hardcode a single key. DID Documents SHOULD declare `rotationKeys` and `nextUpdate` so a controller update immediately invalidates the prior key version.
+
+### 6.3 Revocation propagation
+
+After a revocation, resolvers and caches MUST invalidate within a bounded, documented TTL so that an L2+ badge turns red within an acceptable window — revocation must be a hard propagation requirement, not a post-hoc discovery. Caches SHOULD NOT serve 4xx results.
+
+### 6.4 Credential lifecycle
+
+Signed attestations (trust proofs) are treated as agent credentials with a lifecycle: issuance (credential issuer), use (presentation during authentication), update, and revocation. Revocation MUST propagate within the bounded TTL (§4.6); credentials SHOULD carry type and validity metadata.
+
+### 6.5 Delegation-chain verification
+
+Delegation is chain-aware: each hop (delegator → delegated agent) carries a delegation credential with the delegator, authorization scope, and a chain reference; a verifier MUST validate each hop's authorization along the chain (aligned with GB/Z 185.3 delegation-chain verification).
+
+### 6.6 Fail-closed verification
+
+Registry unavailability (network error, timeout, error response) MUST be treated as **rejection**, never acceptance: the claim is NOT considered valid and the subject MUST NOT be presented as trusted. Bare identity claims without a verifiable signature or resolvable trust state are insufficient for trust decisions. This aligns with the ARIA/MolTrust fail-closed principle: trust decisions require positive confirmation; absence of confirmation is denial.
+
+### 6.7 Revocation checking in verification flows
+
+A consumer (UI, relay, or external verifier) presenting trust information about a subject MUST surface revocation state: resolve/trust lookups include revocation state (`revoked`, `active`, `suspicious`), and consumers MUST display or act on it — a revoked or inactive subject MUST NOT be presented as trusted. This is the consumer-side counterpart of §4.4.1.
+
+### 6.8 Transparency log
+
+Product signatures SHOULD go through a public transparency log (e.g. Sigstore/Rekor) so the signing time of an artifact is auditable and a compromised key's affected window can be reconstructed.
+
+### 6.9 Compromise of Registry signing key
+
+If the Registry's Ed25519 key is compromised, all DIDs resolved by that Registry are affected. Deployments SHOULD support key revocation and rotation procedures and publish an incident/advisory channel in the discovery document (`advisory-feed` capability).
+
+### 6.10 Delegation boundaries
+
+A Registry-issued signature attests to the Registry's registration record for the subject, not to the subject's runtime behavior. Trust proofs and badges attest to registered metadata; runtime authorization decisions require additional evidence.
+
+### 6.11 Post-quantum considerations
+
+Deployments MAY additionally publish a hybrid post-quantum public key in the discovery document (e.g. ML-DSA) alongside Ed25519; verifiers SHOULD accept either for now, and MUST NOT treat the presence of a PQC key as mandatory until the ecosystem standardizes on it.
 
 ## 7. Privacy Considerations
 
-- **Public registry records.** Registered resource metadata (name, description, publisher, timestamps) is public by design; publishers SHOULD NOT include personal data beyond what is necessary.
-- **Resolution traffic.** Resolution endpoints MAY observe query patterns; operators SHOULD treat resolution logs as sensitive and apply retention limits.
-- **Federation.** A federated deployment MUST NOT relay data to other registries unless explicitly configured; operators SHOULD document any cross-registry data flow.
+### 7.1 Public registry records
+
+Registered resource metadata (name, description, publisher, timestamps) is public by design; publishers SHOULD NOT include personal data beyond what is necessary.
+
+### 7.2 Resolution traffic
+
+Resolution endpoints MAY observe query patterns; operators SHOULD treat resolution logs as sensitive and apply retention limits.
+
+### 7.3 Bundle download
+
+A `package`/`skill` bundle is a signed, public artifact; its download endpoints MAY be observed. Operators SHOULD apply retention limits to download logs and MUST NOT include personal data beyond what is necessary in bundle metadata. Clients SHOULD fetch bundles over HTTPS and verify the package signature and, where applicable, `contentIdentity` (§3.2) before use.
+
+### 7.4 Correlation across resources
+
+Because a cha2a Registry resolves all of its own resources, resolution and trust-lookup traffic can correlate DIDs issued by the same Registry (e.g., agents sharing a controller, or publisher/org/provider resources). Operators SHOULD document this correlation risk, avoid cross-resource data flows beyond what is configured, and treat correlation-enabling logs under the same retention policy as resolution logs (§7.2). Publishers SHOULD avoid placing correlatable non-essential metadata in the registry.
+
+### 7.5 Federation
+
+A federated deployment MUST NOT relay data to other registries unless explicitly configured; operators SHOULD document any cross-registry data flow.
 
 ## 8. Reference Implementations
 
