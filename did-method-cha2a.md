@@ -194,6 +194,79 @@ The signature input MUST bind the request (method, parameters, timestamp, nonce)
 
 **Agent self-held key (`#agent-key`).** An agent MAY register its own Ed25519 public key (private key never leaves the agent's device) via `POST /api/v1/agent/key/register` (the agent DID must already be registered). The DID Document then exposes an additional verification method `#agent-key` with **controller = the agent DID itself**, alongside the default `#registry-key` (controller = the Registry). `#agent-key` is **appended, never replacing** `#registry-key`. Signatures by `#agent-key` attest "this agent is speaking" (self-attestation), not merely "the Registry has a record for this agent"; external services MAY prefer `#agent-key` for outbound-call identity (§4.5) when present. The agent-key serves as identity-anchor evidence (L1 subject attestation, §4.6).
 
+### 4.6 Certification levels (L0-L4)
+
+A certification level is a verifier-facing signal about a registered resource, determined by the **verifier's local policy** — never by issuer declaration alone and never by any mutual-recognition agreement between registries:
+
+| Level | Meaning | Basis (per resource metadata) |
+|---|---|---|
+| L0 | unverified | no declaration (default) |
+| L1 | integrity | content fingerprint (contentIdentity/contentHash) |
+| L2 | source | L1 + author attribution |
+| L3 | issuance | L2 + publisher/store attestation (e.g. a marketplace or verifier that reviewed the listing) |
+| L4 | ecosystem | L3 + ≥2 independent verifiers (distinct verifier DIDs), each with a structured `verifiedBy` entry, + disclosure consistency |
+
+**L4 multi-verification.** L4 requires at least two **independent** verifiers (distinct verifier DIDs), each recording a structured `verifiedBy` entry (`verifier` DID, `method`, `result`, `at`, `evidenceRef`). Cross-verification is **invitation-based**: verifier A invites verifier B to independently re-verify; both entries are required and each references an auditable evidence store. A single entity acting under two identities does not satisfy independence. L4 therefore reflects an invitation-based consensus of multiple verifiers, not a unilateral declaration.
+
+**Verifier registration validity (hard requirement).** Every `verifiedBy` entry MUST reference a verifier DID that is actually registered and resolvable in a Registry, and its `evidenceRef` MUST be a real, reachable URL to the auditable evidence store. Placeholder identifiers (e.g. unregistered names) or example/documentation URLs (e.g. RFC 2606 reserved domains) do not satisfy L4 — an implementation MUST NOT compute L4 from such entries. Until at least two real independent verifiers have each completed an auditable re-verification, no resource attains L4; L4 is a target state of the ecosystem, not a label derivable from verification-logic demonstration alone.
+
+The framework aligns with national standard GB/Z 185 *Artificial Intelligence — Agent Interconnection* (identity code, identity management, agent description): CHA2A implements its mechanisms (credential lifecycle, identity authentication flow, delegation-chain verification, capability description) using DID as the cryptographic trust core, with the DID Document optionally declaring the national standard identity code mapping (`nationalStandardId`). Alignment is about mechanisms, not encoding: the OID identity code is a compliance label, DID is the trust executor — a mapping declaration satisfies the standard while runtime trust stays cryptographic.
+
+A verifier decides which levels to accept by enumerating the publishers and attestations it trusts in its local policy — the same principle as verifying signatures against a configured resolver's key set. Whether one marketplace recognizes another marketplace's issuance is a local policy question, not a protocol-level interop agreement. Levels are computed from registered metadata; absence of a declaration yields L0, which is not a trust verdict but a statement that nothing has been attested yet.
+
+**Verifier-as-publisher (explicit case).** A common deployment has a single entity acting as both verifier and L3 issuer (e.g. a store that verifies listings and publishes them under its own `publisher` DID). This is deliberate and consistent with local-policy verification: the meaning is "**this verifier's trusted set includes that publisher's signatures**", not "that publisher stamped the listing". Readers MUST NOT interpret an L3 badge as a third-party seal independent of the verifier's policy; implementations SHOULD expose which publisher signatures the local policy trusts alongside the displayed level.
+
+### 4.7 Runtime attestation vocabulary (reserved)
+#### Evidence credentials, verification status, and predicate namespace
+
+**Evidence credential.** A verifier's predicate-level check on a subject is recorded as an evidence credential:
+
+| Field | Description |
+|---|---|
+| `subject` | did:cha2a DID of the verified subject |
+| `predicateType` | URI of the claimed predicate (see namespace below) |
+| `verifier` | Registered verifier DID (hard requirement, above) |
+| `result` | pass / fail / partial |
+| `checkedAt` | ISO-8601 timestamp |
+| `evidenceRef` | Real, reachable URL to the auditable evidence |
+| `artifactDigest` | Optional SHA-256 digest binding the evidence artifact (anti-tamper) |
+
+Credentials are predicate-scoped by subject type: `identity-anchor` / `owner-binding` / `number-binding` / `delegation` → agent; `number-range-grant` → org; in-toto/attestation → artifacts (package/skill). Predicate-subject mismatches are rejected.
+
+**Principal verification status.** Trust lookups SHOULD report the subject's verification status (aligned with ARIA verificationStatus):
+
+- `self-declared` — subject's own declarations only (metadata); default for L0/L1.
+- `registry-confirmed` — Registry-issued or verified evidence exists (key registration, number-range grants, owner/number bindings); basis for L2+.
+- `legal-verified` — legal-entity verification; reserved for commercial phases, not yet produced.
+
+Status is orthogonal to level: level says how strong the evidence is; status says whether it was self-declared or confirmed.
+
+**Predicate namespace.** Cha2a subject predicates use `https://cha2a.org/predicate/`:
+
+- `identity-anchor` (agent, L1) — key anchoring: public key registered, private key device-held.
+- `owner-binding` (agent, L2) — subject ↔ owner (org/person) binding, confirmed by a verifier.
+- `number-binding` (agent, L2) — number ↔ agent binding.
+- `number-range-grant` (org, L2+) — Registry-authorized number range.
+- `delegation` (agent, L3) — endorsement/delegation chain.
+
+Predicate URIs: `https://cha2a.org/predicate/<name>/v1`. Implementations MAY accept predicate keywords (short names) for compatibility; whitelist matching is by keyword (case-insensitive contains).
+
+**Namespace unification.** `https://cha2a.org/predicate/` is the canonical predicate namespace for subject predicates. Attestation predicates (machine-readable verification evidence) follow the Evidence Record model (see below) and reference existing in-toto predicates where they exist (e.g. `https://in-toto.io/attestation/test-result/v0.1`, `https://in-toto.io/attestation/vuln/v0.1`); extensions are defined under `https://cha2a.org/predicate/` with a `cha2a/*` marker. Business predicates are registered in this whitelist with the same canonical namespace — e.g. `payment-receipt` (a verifiable payment receipt issued by an agent-payment service, used as L2+ evidence of a completed transaction). Implementations deployed under an instance domain (e.g. `compliancehub.cn`) MAY additionally accept that domain's path form (`<instance-domain>/evidence/<name>`) as a compatibility alias for already-issued records; the normative URI is always `https://cha2a.org/predicate/<name>/v1`.
+
+**Evidence Record structure (integrated with the evidence-record.md companion).** The registry stores a credential **summary** (subject + predicateType + verifier + result + checkedAt + evidenceRef), not full evidence. The full Evidence Record is an in-toto Attestation envelope: the Envelope is DSSE-signed by the verifier's key (signature = verifier identity, a registered `verifier` DID), and the Statement carries the subject and predicate details. `evidenceRef` is the URL of the auditable evidence store (in-toto `url` field usage). Conformance of the full structure is defined in the companion `evidence-record.md`; this section pins the registry-facing contract.
+
+The registry side attests "what is shipped is what was published" (L1 content fingerprint). A complementary runtime side attests "what runs is what was verified" (e.g. a host runtime binding a captured tool definition and a monotonic anchor generation at execution, as discussed in ecosystem proposals on ToolRuntime settlement anchors). To keep vocabulary aligned across proposals, this specification reserves the following mapping — it is vocabulary reservation only, no runtime behavior is defined here:
+
+| CHA2A (registry side) | Runtime side (reserved) |
+|---|---|
+| `contentIdentity` (content fingerprint, "what is shipped") | `anchorId` / `anchorGeneration` (captured at execution, "what runs") |
+| L1 integrity attestation | settlement before success publication |
+| revocation / deactivation | generation monotonicity / disposal fail-closed |
+
+**Verifier attribution.** When a host merely lists required anchor IDs (e.g. "require settlement against anchor X before publishing success"), the verifier of the anchor is the host's local policy — the same principle as §4.6 verifier-local policy. The runtime side attests "what runs matches the captured definition/generation"; whether that satisfies the host is a host-local decision. Implementations SHOULD expose which anchors the local policy trusts alongside any settlement result, mirroring the "trusted set" disclosure in §4.6.
+
+Implementations MAY evolve runtime attestation later; this section pins the shared terms so ecosystem proposals do not develop separate dialects.
+
 ## 5. DID Document Structure
 
 A `did:cha2a` DID Document is a JSON-LD document conforming to DID Core. The reference implementation produces documents of the following shape:
@@ -267,82 +340,6 @@ A cha2a Registry SHOULD expose a discovery document at `/.well-known/cha2a` adve
   "version": "1.0"
 }
 ```
-
-### 4.6 Certification levels (L0-L4)
-
-A certification level is a verifier-facing signal about a registered resource, determined by the **verifier's local policy** — never by issuer declaration alone and never by any mutual-recognition agreement between registries:
-
-| Level | Meaning | Basis (per resource metadata) |
-|---|---|---|
-| L0 | unverified | no declaration (default) |
-| L1 | integrity | content fingerprint (contentIdentity/contentHash) |
-| L2 | source | L1 + author attribution |
-| L3 | issuance | L2 + publisher/store attestation (e.g. a marketplace or verifier that reviewed the listing) |
-| L4 | ecosystem | L3 + ≥2 independent verifiers (distinct verifier DIDs), each with a structured `verifiedBy` entry, + disclosure consistency |
-
-**L4 multi-verification.** L4 requires at least two **independent** verifiers (distinct verifier DIDs), each recording a structured `verifiedBy` entry (`verifier` DID, `method`, `result`, `at`, `evidenceRef`). Cross-verification is **invitation-based**: verifier A invites verifier B to independently re-verify; both entries are required and each references an auditable evidence store. A single entity acting under two identities does not satisfy independence. L4 therefore reflects an invitation-based consensus of multiple verifiers, not a unilateral declaration.
-
-**Verifier registration validity (hard requirement).** Every `verifiedBy` entry MUST reference a verifier DID that is actually registered and resolvable in a Registry, and its `evidenceRef` MUST be a real, reachable URL to the auditable evidence store. Placeholder identifiers (e.g. unregistered names) or example/documentation URLs (e.g. RFC 2606 reserved domains) do not satisfy L4 — an implementation MUST NOT compute L4 from such entries. Until at least two real independent verifiers have each completed an auditable re-verification, no resource attains L4; L4 is a target state of the ecosystem, not a label derivable from verification-logic demonstration alone.
-
-The framework aligns with national standard GB/Z 185 *Artificial Intelligence — Agent Interconnection* (identity code, identity management, agent description): CHA2A implements its mechanisms (credential lifecycle, identity authentication flow, delegation-chain verification, capability description) using DID as the cryptographic trust core, with the DID Document optionally declaring the national standard identity code mapping (`nationalStandardId`). Alignment is about mechanisms, not encoding: the OID identity code is a compliance label, DID is the trust executor — a mapping declaration satisfies the standard while runtime trust stays cryptographic.
-
-A verifier decides which levels to accept by enumerating the publishers and attestations it trusts in its local policy — the same principle as verifying signatures against a configured resolver's key set. Whether one marketplace recognizes another marketplace's issuance is a local policy question, not a protocol-level interop agreement. Levels are computed from registered metadata; absence of a declaration yields L0, which is not a trust verdict but a statement that nothing has been attested yet.
-
-**Verifier-as-publisher (explicit case).** A common deployment has a single entity acting as both verifier and L3 issuer (e.g. a store that verifies listings and publishes them under its own `publisher` DID). This is deliberate and consistent with local-policy verification: the meaning is "**this verifier's trusted set includes that publisher's signatures**", not "that publisher stamped the listing". Readers MUST NOT interpret an L3 badge as a third-party seal independent of the verifier's policy; implementations SHOULD expose which publisher signatures the local policy trusts alongside the displayed level.
-
-### 4.7 Runtime attestation vocabulary (reserved)
-#### Evidence credentials, verification status, and predicate namespace
-
-**Evidence credential.** A verifier's predicate-level check on a subject is recorded as an evidence credential:
-
-| Field | Description |
-|---|---|
-| `subject` | did:cha2a DID of the verified subject |
-| `predicateType` | URI of the claimed predicate (see namespace below) |
-| `verifier` | Registered verifier DID (hard requirement, above) |
-| `result` | pass / fail / partial |
-| `checkedAt` | ISO-8601 timestamp |
-| `evidenceRef` | Real, reachable URL to the auditable evidence |
-| `artifactDigest` | Optional SHA-256 digest binding the evidence artifact (anti-tamper) |
-
-Credentials are predicate-scoped by subject type: `identity-anchor` / `owner-binding` / `number-binding` / `delegation` → agent; `number-range-grant` → org; in-toto/attestation → artifacts (package/skill). Predicate-subject mismatches are rejected.
-
-**Principal verification status.** Trust lookups SHOULD report the subject's verification status (aligned with ARIA verificationStatus):
-
-- `self-declared` — subject's own declarations only (metadata); default for L0/L1.
-- `registry-confirmed` — Registry-issued or verified evidence exists (key registration, number-range grants, owner/number bindings); basis for L2+.
-- `legal-verified` — legal-entity verification; reserved for commercial phases, not yet produced.
-
-Status is orthogonal to level: level says how strong the evidence is; status says whether it was self-declared or confirmed.
-
-**Predicate namespace.** Cha2a subject predicates use `https://cha2a.org/predicate/`:
-
-- `identity-anchor` (agent, L1) — key anchoring: public key registered, private key device-held.
-- `owner-binding` (agent, L2) — subject ↔ owner (org/person) binding, confirmed by a verifier.
-- `number-binding` (agent, L2) — number ↔ agent binding.
-- `number-range-grant` (org, L2+) — Registry-authorized number range.
-- `delegation` (agent, L3) — endorsement/delegation chain.
-
-Predicate URIs: `https://cha2a.org/predicate/<name>/v1`. Implementations MAY accept predicate keywords (short names) for compatibility; whitelist matching is by keyword (case-insensitive contains).
-
-**Namespace unification.** `https://cha2a.org/predicate/` is the canonical predicate namespace for subject predicates. Attestation predicates (machine-readable verification evidence) follow the Evidence Record model (see below) and reference existing in-toto predicates where they exist (e.g. `https://in-toto.io/attestation/test-result/v0.1`, `https://in-toto.io/attestation/vuln/v0.1`); extensions are defined under `https://cha2a.org/predicate/` with a `cha2a/*` marker. Business predicates are registered in this whitelist with the same canonical namespace — e.g. `payment-receipt` (a verifiable payment receipt issued by an agent-payment service, used as L2+ evidence of a completed transaction). Implementations deployed under an instance domain (e.g. `compliancehub.cn`) MAY additionally accept that domain's path form (`<instance-domain>/evidence/<name>`) as a compatibility alias for already-issued records; the normative URI is always `https://cha2a.org/predicate/<name>/v1`.
-
-**Evidence Record structure (integrated with the evidence-record.md companion).** The registry stores a credential **summary** (subject + predicateType + verifier + result + checkedAt + evidenceRef), not full evidence. The full Evidence Record is an in-toto Attestation envelope: the Envelope is DSSE-signed by the verifier's key (signature = verifier identity, a registered `verifier` DID), and the Statement carries the subject and predicate details. `evidenceRef` is the URL of the auditable evidence store (in-toto `url` field usage). Conformance of the full structure is defined in the companion `evidence-record.md`; this section pins the registry-facing contract.
-
-
-
-
-The registry side attests "what is shipped is what was published" (L1 content fingerprint). A complementary runtime side attests "what runs is what was verified" (e.g. a host runtime binding a captured tool definition and a monotonic anchor generation at execution, as discussed in ecosystem proposals on ToolRuntime settlement anchors). To keep vocabulary aligned across proposals, this specification reserves the following mapping — it is vocabulary reservation only, no runtime behavior is defined here:
-
-| CHA2A (registry side) | Runtime side (reserved) |
-|---|---|
-| `contentIdentity` (content fingerprint, "what is shipped") | `anchorId` / `anchorGeneration` (captured at execution, "what runs") |
-| L1 integrity attestation | settlement before success publication |
-| revocation / deactivation | generation monotonicity / disposal fail-closed |
-
-**Verifier attribution.** When a host merely lists required anchor IDs (e.g. "require settlement against anchor X before publishing success"), the verifier of the anchor is the host's local policy — the same principle as §4.6 verifier-local policy. The runtime side attests "what runs matches the captured definition/generation"; whether that satisfies the host is a host-local decision. Implementations SHOULD expose which anchors the local policy trusts alongside any settlement result, mirroring the "trusted set" disclosure in §4.6.
-
-Implementations MAY evolve runtime attestation later; this section pins the shared terms so ecosystem proposals do not develop separate dialects.
 
 ## 6. Security Considerations
 
