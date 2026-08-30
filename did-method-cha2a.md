@@ -46,6 +46,14 @@ did:cha2a:publisher:example-marketplace.com
 
 Registry-mediated DID methods (a registry assigns the DID, holds the controller signing key, and resolves DID Documents over HTTP) form a small family. This method is an **independent registration**: it has its own name, specification, and reference implementation, deployed domestically at compliancehub.cn. The resource-type set (§3.2) follows the shared open convention of the family for interoperability; a verifier that trusts a resolver can resolve any well-formed DID of any registry-mediated method it is configured for. This method neither requires nor forbids interoperation with other registries; federation is out of scope for this specification (see §4.2.1).
 
+### 1.3 Relationship to A2A and ARD ecosystems
+
+The did:cha2a method is designed to coexist with the A2A (Agent2Agent) protocol and Google's Agentic Resource Discovery (ARD) at different layers, not to replace them:
+
+- **A2A Agent Cards** describe an agent's *capabilities* (skills, interfaces, modes). A did:cha2a identity anchors *who the agent is* and its trust state. An agent may expose an A2A Agent Card for capability discovery while carrying a did:cha2a DID as its identity/trust anchor; the DID Document's `service` endpoints (trust lookup, trust proofs) give A2A consumers a verifiable trust surface A2A itself does not define.
+- **ARD trust manifests** are framework-agnostic by design (the ARD specification explicitly accepts "a DID method" as a structurally valid `trustManifest.identity` framework). A did:cha2a DID Document is a conforming trust manifest: its `verificationMethod` is the Registry's Ed25519 signing key, and its publisher-authority binding (§4.5.1 of ARD) aligns with the `<publisher>` domain of the discovery identifier. An ARD registry that inspects and verifies manifests per the declared framework can therefore verify did:cha2a-issued trust manifests under this method's own verification rules (§4.6).
+- **This method neither requires nor depends on** A2A or ARD adoption; the relationship is optional interoperation, not coupling.
+
 ## 2. Method Name
 
 The method name that shall identify this DID method is: `cha2a`.
@@ -317,6 +325,11 @@ Status is orthogonal to level: level says how strong the evidence is; status say
 
 Predicate URIs: `https://cha2a.org/predicate/<name>/v1`. Implementations MAY accept predicate keywords (short names) for compatibility; whitelist matching is by keyword (case-insensitive contains).
 
+**Namespace unification.** `https://cha2a.org/predicate/` is the canonical predicate namespace for subject predicates. Attestation predicates (machine-readable verification evidence) follow the Evidence Record model (see below) and reference existing in-toto predicates where they exist (e.g. `https://in-toto.io/attestation/test-result/v0.1`, `https://in-toto.io/attestation/vuln/v0.1`); extensions are defined under `https://cha2a.org/predicate/` with a `cha2a/*` marker. Business predicates are registered in this whitelist with the same canonical namespace — e.g. `payment-receipt` (a verifiable payment receipt issued by an agent-payment service, used as L2+ evidence of a completed transaction). Implementations deployed under an instance domain (e.g. `compliancehub.cn`) MAY additionally accept that domain's path form (`<instance-domain>/evidence/<name>`) as a compatibility alias for already-issued records; the normative URI is always `https://cha2a.org/predicate/<name>/v1`.
+
+**Evidence Record structure (integrated with the evidence-record.md companion).** The registry stores a credential **summary** (subject + predicateType + verifier + result + checkedAt + evidenceRef), not full evidence. The full Evidence Record is an in-toto Attestation envelope: the Envelope is DSSE-signed by the verifier's key (signature = verifier identity, a registered `verifier` DID), and the Statement carries the subject and predicate details. `evidenceRef` is the URL of the auditable evidence store (in-toto `url` field usage). Conformance of the full structure is defined in the companion `evidence-record.md`; this section pins the registry-facing contract.
+
+
 
 
 The registry side attests "what is shipped is what was published" (L1 content fingerprint). A complementary runtime side attests "what runs is what was verified" (e.g. a host runtime binding a captured tool definition and a monotonic anchor generation at execution, as discussed in ecosystem proposals on ToolRuntime settlement anchors). To keep vocabulary aligned across proposals, this specification reserves the following mapping — it is vocabulary reservation only, no runtime behavior is defined here:
@@ -410,7 +423,17 @@ Revisions to this specification are recorded in the repository's `CHANGELOG.md`.
 
 Editorial changes (typos, links, wording) MAY merge without the quiet period.
 
-## 10. References
+## 10. Companion documents (specification group)
+
+The did:cha2a specification is the normative method core. The following companion documents form the CHA2A specification group and are maintained alongside it:
+
+- `evidence-record.md` — the machine-readable Evidence Record model (in-toto Attestation structure, DSSE signing, predicate registry), referenced by §4.6.
+- `agent-identity.md` — the did:cha2a:agent identity protocol sub-specification (agent identity lifecycle, interaction scenarios, delegation/authorization scope), extending §3.2 and §4.5.
+- `EVIDENCE.md` — recorded minimum-loop verification evidence (registration, discovery, resolution, signature verification).
+
+Normative requirements appear only in this document; companion documents are informative unless explicitly referenced as normative by this specification.
+
+## 11. References
 
 - W3C Decentralized Identifiers (DIDs) v1.0: <https://www.w3.org/TR/did-core/>
 - W3C DID Extensions registry: <https://github.com/w3c/did-extensions>
