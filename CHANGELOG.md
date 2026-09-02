@@ -5,6 +5,7 @@
 - §5.2: discovery document example + SHOULD advertise `federation` capability and `registryStatus`/`registryPeers`/`registryTrust` endpoints when the peer profile is deployed.
 - §7.5: operational requirements — explicit-config relay only, local-first, read-only, fail-closed; no implicit peer discovery; cross-registry number resolution preserves relaying identity.
 - §8: reference-implementation endpoint enumeration updated (search / verify/artifact / registry status added; "federation not advertised" removed).
+- §1.3: capability search — a registry MAY expose `GET /api/v1/search?q=` over resources/capability descriptions (registry-side discovery, complements A2A/ARD).
 
 ## Unreleased (v0.3) — 2026-08-29
 - §9: quiet period 3 → 1 days (sole-editor self-review; the period is a minimum gate, not a deadline — any reviewer may request a longer period before merge).
