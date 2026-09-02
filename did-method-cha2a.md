@@ -44,7 +44,7 @@ did:cha2a:publisher:example-marketplace.com
 
 ### 1.2 Relationship to other registry-mediated methods
 
-Registry-mediated DID methods (a registry assigns the DID, holds the controller signing key, and resolves DID Documents over HTTP) form a small family. This method is an **independent registration**: it has its own name, specification, and reference implementation, deployed domestically at compliancehub.cn. The resource-type set (§3.2) follows the shared open convention of the family for interoperability; a verifier that trusts a resolver can resolve any well-formed DID of any registry-mediated method it is configured for. This method neither requires nor forbids interoperation with other registries; federation is out of scope for this specification (see §4.2.1).
+Registry-mediated DID methods (a registry assigns the DID, holds the controller signing key, and resolves DID Documents over HTTP) form a small family. This method is an **independent registration**: it has its own name, specification, and reference implementation, deployed domestically at compliancehub.cn. The resource-type set (§3.2) follows the shared open convention of the family for interoperability; a verifier that trusts a resolver can resolve any well-formed DID of any registry-mediated method it is configured for. This method neither requires nor forbids interoperation with other registries; federation is specified minimally in §4.2.1 (permission model) and §7.5 (operational requirements).
 
 ### 1.3 Relationship to A2A and ARD ecosystems
 
@@ -191,6 +191,14 @@ Resolvers MAY cache successful resolutions per the `Cache-Control` header; resol
 #### 4.2.1 Federation
 
 The method permits federation: more than one cha2a Registry deployment MAY exist, and each deployment MAY resolve any well-formed `did:cha2a` DID. Under federation the trust semantics do not change: whatever resolver a verifier is configured with is the trust anchor for the documents it returns. A federated deployment MUST NOT be assumed to trust or relay data to any other registry unless explicitly configured to do so.
+
+A deployment that opts into federation MAY expose an explicit peer profile:
+
+- `GET /api/v1/registry/status` — the registry DID, deployed capabilities, and the configured peer roster.
+- `GET /api/v1/registry/peers` — the peer roster; peer mutation endpoints (POST/DELETE) MUST require administrative authorization (e.g. `X-Admin-Key`).
+- `GET /api/v1/registry/trust/{did}?peer=<id>` — a trust lookup that resolves **locally first**; only when the DID is not registered locally MAY it forward to an explicitly configured peer. Forwarded lookups MUST be read-only, MUST fail closed (surface the source peer and the upstream status rather than fabricate a result), and MUST NOT implicitly peer with unknown registries.
+
+A registry that implements this profile SHOULD advertise the `federation` capability and its `registryStatus` / `registryPeers` / `registryTrust` endpoints in its §5.2 discovery document.
 
 ### 4.3 Update
 
@@ -374,7 +382,10 @@ A cha2a Registry SHOULD expose a discovery document at `/.well-known/cha2a` adve
   "endpoints": {
     "didResolve": "/api/v1/did/{did}",
     "trustLookup": "/api/v1/trust/query",
-    "trustProof": "/api/v1/trust/proof"
+    "trustProof": "/api/v1/trust/proof",
+    "registryStatus": "/api/v1/registry/status",
+    "registryPeers": "/api/v1/registry/peers",
+    "registryTrust": "/api/v1/registry/trust/{did}"
   },
   "publicKeys": [
     { "version": 1, "algorithm": "Ed25519", "publicKey": "<base64>", "status": "signing", "createdAt": "<ISO-8601>" }
@@ -384,6 +395,8 @@ A cha2a Registry SHOULD expose a discovery document at `/.well-known/cha2a` adve
   "version": "1.0"
 }
 ```
+
+When a registry implements the §4.2.1 federation peer profile, it SHOULD additionally advertise `federation` in `capabilities` and include `registryStatus`, `registryPeers`, and `registryTrust` in `endpoints`.
 
 ## 6. Security Considerations
 
@@ -451,11 +464,11 @@ Because a cha2a Registry resolves all of its own resources, resolution and trust
 
 ### 7.5 Federation
 
-A federated deployment MUST NOT relay data to other registries unless explicitly configured; operators SHOULD document any cross-registry data flow.
+A federated deployment MUST NOT relay data to another registry unless explicitly configured to do so; operators SHOULD document any cross-registry data flow. Implementations that expose the §4.2.1 peer profile MUST resolve trust lookups locally first and forward only to explicitly configured peers; forwarded lookups are read-only and MUST fail closed — they MUST surface the source peer and the upstream result rather than fabricate one. Registries MUST NOT automatically discover or trust peers; peering is an explicit administrative action. Cross-registry number resolution (phone resolve) MAY forward through a configured peer and MUST preserve the relaying identity as the observable sender (§3.2 relay delivery).
 
 ## 8. Reference Implementations
 
-- **cha2a Registry (reference, running).** The reference registry is live at **<https://compliancehub.cn>** (operated by the maintainer; HTTPS via the site's existing TLS). It implements the §4 operations (Create, Read, Update, Deactivate), the §5 DID Document structure, and the §5.2 discovery document. Public endpoints: `https://compliancehub.cn/.well-known/cha2a` (discovery), `https://compliancehub.cn/api/v1/did/<did>` (resolution), `https://compliancehub.cn/api/v1/trust/query?did=<did>` (trust lookup), `https://compliancehub.cn/badge/<type>/<id>` (badge). The Node process listens on `127.0.0.1` only; nginx reverse-proxies the four paths on port 443, reusing the site certificate, and no public port is opened. Service endpoints advertised in resolved DID Documents and in `/.well-known/cha2a` are limited to the capabilities actually deployed — DID resolution, trust lookup, trust proof issuance, revocation, and deactivation; capabilities not deployed (e.g. federation sync) are not advertised. Conformance is demonstrated with byte-stable test vectors (self-published, `MANIFEST.sha256`-pinned) and, where applicable, cross-checked against the conformance fixtures of interoperable registry-mediated methods.
+- **cha2a Registry (reference, running).** The reference registry is live at **<https://compliancehub.cn>** (operated by the maintainer; HTTPS via the site's existing TLS). It implements the §4 operations (Create, Read, Update, Deactivate), the §5 DID Document structure, and the §5.2 discovery document. Public endpoints include `https://compliancehub.cn/.well-known/cha2a` (discovery), `https://compliancehub.cn/api/v1/did/<did>` (resolution), `https://compliancehub.cn/api/v1/trust/query?did=<did>` (trust lookup), `https://compliancehub.cn/badge/<type>/<id>` (badge), `https://compliancehub.cn/api/v1/search?q=<term>` (search), `https://compliancehub.cn/api/v1/verify/artifact` (content-integrity, POST), and `https://compliancehub.cn/api/v1/registry/status` (federation). The Node process listens on `127.0.0.1` only; nginx reverse-proxies the deployed API paths on port 443, reusing the site certificate, and no public port is opened. Service endpoints advertised in `/.well-known/cha2a` are limited to the capabilities actually deployed (DID resolution; trust lookup, proof, and revocation; deactivation; evidence register/query; phone register/resolve/lookup; search; and the §4.2.1 federation peer profile — status/peers/trust); capabilities not deployed are not advertised. Conformance is demonstrated with byte-stable test vectors (self-published, `MANIFEST.sha256`-pinned) and, where applicable, cross-checked against the conformance fixtures of interoperable registry-mediated methods.
 - **Verifier tooling.** A local verifier (Ed25519) validating DID Documents and signed trust proofs against discovery `publicKeys`.
 
 ## 9. Conformance
@@ -520,4 +533,4 @@ Normative requirements appear only in this document; companion documents are inf
 
 ---
 
-*v0.3 (unreleased). Editor: wwumit (complianceHub). License: Apache-2.0.*
+*v0.4 (unreleased). Editor: wwumit (complianceHub). License: Apache-2.0.*
