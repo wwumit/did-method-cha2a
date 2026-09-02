@@ -46,6 +46,14 @@ did:cha2a:publisher:example-marketplace.com
 
 Registry-mediated DID methods (a registry assigns the DID, holds the controller signing key, and resolves DID Documents over HTTP) form a small family. This method is an **independent registration**: it has its own name, specification, and reference implementation, deployed domestically at compliancehub.cn. The resource-type set (§3.2) follows the shared open convention of the family for interoperability; a verifier that trusts a resolver can resolve any well-formed DID of any registry-mediated method it is configured for. This method neither requires nor forbids interoperation with other registries; federation is out of scope for this specification (see §4.2.1).
 
+### 1.3 Relationship to A2A and ARD ecosystems
+
+The did:cha2a method is designed to coexist with the A2A (Agent2Agent) protocol and Google's Agentic Resource Discovery (ARD) at different layers, not to replace them:
+
+- **A2A Agent Cards** describe an agent's *capabilities* (skills, interfaces, modes). A did:cha2a identity anchors *who the agent is* and its trust state. An agent may expose an A2A Agent Card for capability discovery while carrying a did:cha2a DID as its identity/trust anchor; the DID Document's `service` endpoints (trust lookup, trust proofs) give A2A consumers a verifiable trust surface A2A itself does not define.
+- **ARD trust manifests** are framework-agnostic by design (the ARD specification explicitly accepts "a DID method" as a structurally valid `trustManifest.identity` framework). A did:cha2a DID Document is a conforming trust manifest: its `verificationMethod` is the Registry's Ed25519 signing key, and its publisher-authority binding (§4.5.1 of ARD) aligns with the `<publisher>` domain of the discovery identifier. An ARD registry that inspects and verifies manifests per the declared framework can therefore verify did:cha2a-issued trust manifests under this method's own verification rules (§4.6).
+- **This method neither requires nor depends on** A2A or ARD adoption; the relationship is optional interoperation, not coupling.
+
 ## 2. Method Name
 
 The method name that shall identify this DID method is: `cha2a`.
@@ -271,6 +279,9 @@ Status is orthogonal to level: level says how strong the evidence is; status say
 
 Predicate URIs: `https://cha2a.org/predicate/<name>/v1`. Implementations MAY accept predicate keywords (short names) for compatibility; whitelist matching is by keyword (case-insensitive contains).
 
+**Namespace unification.** `https://cha2a.org/predicate/` is the canonical predicate namespace for subject predicates. Attestation predicates (machine-readable verification evidence) follow the Evidence Record model (see below) and reference existing in-toto predicates where they exist (e.g. `https://in-toto.io/attestation/test-result/v0.1`, `https://in-toto.io/attestation/vuln/v0.1`); extensions are defined under `https://cha2a.org/predicate/` with a `cha2a/*` marker. Business predicates are registered in this whitelist with the same canonical namespace — e.g. `payment-receipt` (a verifiable payment receipt issued by an agent-payment service, used as L2+ evidence of a completed transaction). Implementations deployed under an instance domain (e.g. `compliancehub.cn`) MAY additionally accept that domain's path form (`<instance-domain>/evidence/<name>`) as a compatibility alias for already-issued records; the normative URI is always `https://cha2a.org/predicate/<name>/v1`.
+
+**Evidence Record structure (integrated with the evidence-record.md companion).** The registry stores a credential **summary** (subject + predicateType + verifier + result + checkedAt + evidenceRef), not full evidence. The full Evidence Record is an in-toto Attestation envelope: the Envelope is DSSE-signed by the verifier's key (signature = verifier identity, a registered `verifier` DID), and the Statement carries the subject and predicate details. `evidenceRef` is the URL of the auditable evidence store (in-toto `url` field usage). Conformance of the full structure is defined in the companion `evidence-record.md`; this section pins the registry-facing contract.
 **Content integrity verification (artifact attestation, v0.3).** For AI assets (package / skill / model / dataset — any artifact carrying a `contentIdentity`), the Registry MAY provide a content-integrity verification endpoint (`/verify/artifact`) that aggregates four checks into a single machine-readable report:
 
 | Check | Basis | Pass condition |
@@ -376,36 +387,131 @@ A cha2a Registry SHOULD expose a discovery document at `/.well-known/cha2a` adve
 
 ## 6. Security Considerations
 
-- **Registry-mediated trust.** The method is not fully decentralized in the sense of `did:key` or `did:peer`. A verifier's trust in a resolved DID is exactly its trust in the configured Registry resolver. This is stated honestly; deployments SHOULD document their resolver choice.
-- **Key rotation.** Rotation MUST create an explicit overlap period and advertise all valid keys in the discovery document; verifiers MUST NOT hardcode a single key. DID Documents SHOULD declare `rotationKeys` and `nextUpdate` so a controller update immediately invalidates the prior key version.
-- **Revocation propagation.** After a revocation, resolvers and caches MUST invalidate within a bounded, documented TTL so that an L2+ badge turns red within an acceptable window — revocation must be a hard propagation requirement, not a post-hoc discovery. Caches SHOULD NOT serve 4xx results.
-- **Credential lifecycle.** Signed attestations (trust proofs) are treated as agent credentials with a lifecycle: issuance (credential issuer), use (presentation during authentication), update, and revocation. Revocation MUST propagate within the bounded TTL (§4.6); credentials SHOULD carry type and validity metadata.
-- **Delegation-chain verification.** Delegation is chain-aware: each hop (delegator → delegated agent) carries a delegation credential with the delegator, authorization scope, and a chain reference; a verifier MUST validate each hop's authorization along the chain (aligned with GB/Z 185.3 delegation-chain verification).
-- **Fail-closed verification.** Registry unavailability (network error, timeout, error response) MUST be treated as **rejection**, never acceptance: the claim is NOT considered valid and the subject MUST NOT be presented as trusted. Bare identity claims without a verifiable signature or resolvable trust state are insufficient for trust decisions. This aligns with the ARIA/MolTrust fail-closed principle: trust decisions require positive confirmation; absence of confirmation is denial.
-- **Revocation checking in verification flows.** A consumer (UI, relay, or external verifier) presenting trust information about a subject MUST surface revocation state: resolve/trust lookups include revocation state (`revoked`, `active`, `suspicious`), and consumers MUST display or act on it — a revoked or inactive subject MUST NOT be presented as trusted. This is the consumer-side counterpart of §4.4.1.
-- **Transparency log.** Product signatures SHOULD go through a public transparency log (e.g. Sigstore/Rekor) so the signing time of an artifact is auditable and a compromised key's affected window can be reconstructed.
-- **Compromise of Registry signing key.** If the Registry's Ed25519 key is compromised, all DIDs resolved by that Registry are affected. Deployments SHOULD support key revocation and rotation procedures and publish an incident/advisory channel in the discovery document (`advisory-feed` capability).
-- **Delegation boundaries.** A Registry-issued signature attests to the Registry's registration record for the subject, not to the subject's runtime behavior. Trust proofs and badges attest to registered metadata; runtime authorization decisions require additional evidence.
-- **Post-quantum considerations.** Deployments MAY additionally publish a hybrid post-quantum public key in the discovery document (e.g. ML-DSA) alongside Ed25519; verifiers SHOULD accept either for now, and MUST NOT treat the presence of a PQC key as mandatory until the ecosystem standardizes on it.
+### 6.1 Registry-mediated trust
+
+The method is not fully decentralized in the sense of `did:key` or `did:peer`. A verifier's trust in a resolved DID is exactly its trust in the configured Registry resolver. This is stated honestly; deployments SHOULD document their resolver choice.
+
+### 6.2 Key rotation
+
+Rotation MUST create an explicit overlap period and advertise all valid keys in the discovery document; verifiers MUST NOT hardcode a single key. DID Documents SHOULD declare `rotationKeys` and `nextUpdate` so a controller update immediately invalidates the prior key version.
+
+### 6.3 Revocation propagation
+
+After a revocation, resolvers and caches MUST invalidate within a bounded, documented TTL so that an L2+ badge turns red within an acceptable window — revocation must be a hard propagation requirement, not a post-hoc discovery. Caches SHOULD NOT serve 4xx results.
+
+### 6.4 Credential lifecycle
+
+Signed attestations (trust proofs) are treated as agent credentials with a lifecycle: issuance (credential issuer), use (presentation during authentication), update, and revocation. Revocation MUST propagate within the bounded TTL (§4.6); credentials SHOULD carry type and validity metadata.
+
+### 6.5 Delegation-chain verification
+
+Delegation is chain-aware: each hop (delegator → delegated agent) carries a delegation credential with the delegator, authorization scope, and a chain reference; a verifier MUST validate each hop's authorization along the chain (aligned with GB/Z 185.3 delegation-chain verification).
+
+### 6.6 Fail-closed verification
+
+Registry unavailability (network error, timeout, error response) MUST be treated as **rejection**, never acceptance: the claim is NOT considered valid and the subject MUST NOT be presented as trusted. Bare identity claims without a verifiable signature or resolvable trust state are insufficient for trust decisions. This aligns with the ARIA/MolTrust fail-closed principle: trust decisions require positive confirmation; absence of confirmation is denial.
+
+### 6.7 Revocation checking in verification flows
+
+A consumer (UI, relay, or external verifier) presenting trust information about a subject MUST surface revocation state: resolve/trust lookups include revocation state (`revoked`, `active`, `suspicious`), and consumers MUST display or act on it — a revoked or inactive subject MUST NOT be presented as trusted. This is the consumer-side counterpart of §4.4.1.
+
+### 6.8 Transparency log
+
+Product signatures SHOULD go through a public transparency log (e.g. Sigstore/Rekor) so the signing time of an artifact is auditable and a compromised key's affected window can be reconstructed.
+
+### 6.9 Compromise of Registry signing key
+
+If the Registry's Ed25519 key is compromised, all DIDs resolved by that Registry are affected. Deployments SHOULD support key revocation and rotation procedures and publish an incident/advisory channel in the discovery document (`advisory-feed` capability).
+
+### 6.10 Delegation boundaries
+
+A Registry-issued signature attests to the Registry's registration record for the subject, not to the subject's runtime behavior. Trust proofs and badges attest to registered metadata; runtime authorization decisions require additional evidence.
+
+### 6.11 Post-quantum considerations
+
+Deployments MAY additionally publish a hybrid post-quantum public key in the discovery document (e.g. ML-DSA) alongside Ed25519; verifiers SHOULD accept either for now, and MUST NOT treat the presence of a PQC key as mandatory until the ecosystem standardizes on it.
 
 ## 7. Privacy Considerations
 
-- **Public registry records.** Registered resource metadata (name, description, publisher, timestamps) is public by design; publishers SHOULD NOT include personal data beyond what is necessary.
-- **Resolution traffic.** Resolution endpoints MAY observe query patterns; operators SHOULD treat resolution logs as sensitive and apply retention limits.
-- **Federation.** A federated deployment MUST NOT relay data to other registries unless explicitly configured; operators SHOULD document any cross-registry data flow.
+### 7.1 Public registry records
+
+Registered resource metadata (name, description, publisher, timestamps) is public by design; publishers SHOULD NOT include personal data beyond what is necessary.
+
+### 7.2 Resolution traffic
+
+Resolution endpoints MAY observe query patterns; operators SHOULD treat resolution logs as sensitive and apply retention limits.
+
+### 7.3 Bundle download
+
+A `package`/`skill` bundle is a signed, public artifact; its download endpoints MAY be observed. Operators SHOULD apply retention limits to download logs and MUST NOT include personal data beyond what is necessary in bundle metadata. Clients SHOULD fetch bundles over HTTPS and verify the package signature and, where applicable, `contentIdentity` (§3.2) before use.
+
+### 7.4 Correlation across resources
+
+Because a cha2a Registry resolves all of its own resources, resolution and trust-lookup traffic can correlate DIDs issued by the same Registry (e.g., agents sharing a controller, or publisher/org/provider resources). Operators SHOULD document this correlation risk, avoid cross-resource data flows beyond what is configured, and treat correlation-enabling logs under the same retention policy as resolution logs (§7.2). Publishers SHOULD avoid placing correlatable non-essential metadata in the registry.
+
+### 7.5 Federation
+
+A federated deployment MUST NOT relay data to other registries unless explicitly configured; operators SHOULD document any cross-registry data flow.
 
 ## 8. Reference Implementations
 
 - **cha2a Registry (reference, running).** The reference registry is live at **<https://compliancehub.cn>** (operated by the maintainer; HTTPS via the site's existing TLS). It implements the §4 operations (Create, Read, Update, Deactivate), the §5 DID Document structure, and the §5.2 discovery document. Public endpoints: `https://compliancehub.cn/.well-known/cha2a` (discovery), `https://compliancehub.cn/api/v1/did/<did>` (resolution), `https://compliancehub.cn/api/v1/trust/query?did=<did>` (trust lookup), `https://compliancehub.cn/badge/<type>/<id>` (badge). The Node process listens on `127.0.0.1` only; nginx reverse-proxies the four paths on port 443, reusing the site certificate, and no public port is opened. Service endpoints advertised in resolved DID Documents and in `/.well-known/cha2a` are limited to the capabilities actually deployed — DID resolution, trust lookup, trust proof issuance, revocation, and deactivation; capabilities not deployed (e.g. federation sync) are not advertised. Conformance is demonstrated with byte-stable test vectors (self-published, `MANIFEST.sha256`-pinned) and, where applicable, cross-checked against the conformance fixtures of interoperable registry-mediated methods.
 - **Verifier tooling.** A local verifier (Ed25519) validating DID Documents and signed trust proofs against discovery `publicKeys`.
 
-## 9. Versioning and Change Process
+## 9. Conformance
 
-Revisions to this specification are recorded in the repository's `CHANGELOG.md`. Substantive changes (changes to the ABNF, the registered resource types, the operation surface, the DID Document shape, or the security model) SHALL be accompanied by a version bump and a pull request that requires review by the editor(s) listed in `MAINTAINERS.md` and a **3-day quiet period** before merge (reduced from 7 days in v0.2: the maintainer is the sole editor — self-review — so the quiet period serves as a cooling-off / community-notice window rather than an external-review dependency; public discussion continues indefinitely via the proposal thread, 3 days is the merge gate only).
+This section defines how conformance to this specification is demonstrated and declared, following the pattern established by the opena2a ATX/ATP conformance suites (byte-stable fixtures pinned by SHA-256, verified by SDK-independent reference verifiers, with a `MANIFEST.sha256`).
+
+### 9.1 Conformance statement
+
+An implementation MAY declare conformance to this specification (or a stated subset). The reference registry (§8) declares conformance to the full set below, evidenced by §8's recorded verification and the conformance assets described in §9.2–9.3.
+
+### 9.2 Test coverage and vectors
+
+Conformance is demonstrated over the following normative surface, each item with byte-stable test vectors (JSON fixtures, SHA-256-pinned in `MANIFEST.sha256`, with expected verdicts ACCEPT/REJECT) and at least one SDK-independent reference verifier:
+
+| Normative surface | Covered requirements |
+|---|---|
+| DID syntax & normalization | §3.1 ABNF, §3.3 normalization, §3.4 reserved identifiers |
+| CRUD operations | §4.1 Create, §4.2 Read (Resolve), §4.3 Update, §4.4 Deactivate |
+| Outbound caller authentication | §4.5 (X-DID / X-DID-Sig verification) |
+| Certification levels & evidence | §4.6 L0-L4 computation, evidence credential schema, revocation fail-closed |
+| DID Document structure | §5 (verificationMethod, verification relationships, service endpoints, discovery document §5.2) |
+| Signature verification | Ed25519 verification of registry-issued trust proofs against discovery `publicKeys` |
+
+### 9.3 Live-endpoint conformance
+
+In addition to fixtures, conformance SHOULD be demonstrated against a *running* deployment: scripts exercising the live endpoints (discovery `/.well-known/cha2a`, DID resolution, trust lookup, trust proof, revocation). The reference registry passes these for the endpoints it exposes (§8).
+
+### 9.4 Not covered (honest)
+
+The following are explicitly out of the conformance suite's coverage until further notice:
+
+- **L4 ecosystem state**: requires ≥2 *independent* real verifiers with auditable re-verification (§4.6) — not provable by fixtures alone; tracked as a target ecosystem state, not a fixture verdict.
+- **Federation**: out of scope for this specification (§4.2.1).
+- **Runtime attestation vocabulary** (§4.7): reserved, no runtime behavior defined.
+
+### 9.5 Conformance assets
+
+The conformance suite (fixtures, reference verifiers, `MANIFEST.sha256`) is published in this repository's `conformance/` directory, aligned with the opena2a `atx-conformance`/`atp-conformance` pattern. **Current status: test vectors and reference verifiers are planned and tracked as conformance work; §8 records the verification evidence available today (recorded minimum-loop runs).** Implementations claiming conformance MUST publish or reference their own vectors for any subset they claim beyond what this suite provides.
+
+## 10. Versioning and Change Process
+
+Revisions to this specification are recorded in the repository's `CHANGELOG.md`. Substantive changes (changes to the ABNF, the registered resource types, the operation surface, the DID Document shape, or the security model) SHALL be accompanied by a version bump and a pull request that requires review by the editor(s) listed in `MAINTAINERS.md` and a **1-day quiet period** before merge (reduced from 7 days in v0.2 and from 3 days in v0.3: the maintainer is the sole editor — self-review — so the quiet period serves as a cooling-off / community-notice window rather than an external-review dependency; public discussion continues indefinitely via the proposal thread). The quiet period is a **minimum gate, not a deadline**: any reviewer may request a longer period before merge.
 
 Editorial changes (typos, links, wording) MAY merge without the quiet period.
 
-## 10. References
+## 11. Companion documents (specification group)
+
+The did:cha2a specification is the normative method core. The following companion documents form the CHA2A specification group and are maintained alongside it:
+
+- `evidence-record.md` — the machine-readable Evidence Record model (in-toto Attestation structure, DSSE signing, predicate registry), referenced by §4.6.
+- `agent-identity.md` — the did:cha2a:agent identity protocol sub-specification (agent identity lifecycle, interaction scenarios, delegation/authorization scope), extending §3.2 and §4.5.
+- `EVIDENCE.md` — recorded minimum-loop verification evidence (registration, discovery, resolution, signature verification).
+
+Normative requirements appear only in this document; companion documents are informative unless explicitly referenced as normative by this specification.
+
+## 12. References
 
 - W3C Decentralized Identifiers (DIDs) v1.0: <https://www.w3.org/TR/did-core/>
 - W3C DID Extensions registry: <https://github.com/w3c/did-extensions>

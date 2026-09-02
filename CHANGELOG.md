@@ -1,4 +1,5 @@
 ## Unreleased (v0.3) — 2026-08-29
+- §9: quiet period 3 → 1 days (sole-editor self-review; the period is a minimum gate, not a deadline — any reviewer may request a longer period before merge).
 
 - New §3.4: **Identifier normalization** — the literal prefix and `resource-type` are case-sensitive
   lowercase (uppercase variants are invalid and rejected, never normalized); `resource-id` is
