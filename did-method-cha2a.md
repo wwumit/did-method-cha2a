@@ -50,7 +50,7 @@ Registry-mediated DID methods (a registry assigns the DID, holds the controller 
 
 The method name that shall identify this DID method is: `cha2a`.
 
-A DID that uses this method MUST begin with the following literal prefix: `did:cha2a:`. The prefix is normalized to lowercase. All bytes are US-ASCII.
+A DID that uses this method MUST begin with the following literal prefix: `did:cha2a:`. The prefix is written in lowercase (`cha2a` per the ABNF in §3.1, `ALPHA-LOWER`); an uppercase variant such as `did:CHA2A:` is syntactically invalid — see §3.1.2 (no normalization is applied). All bytes are US-ASCII.
 
 **Naming note:** the prefix `ch` is an abbreviation for **complianceHub** (the maintainer's ecosystem and brand). The method name is stable and the definition is not tied to any other expansion.
 
@@ -77,6 +77,16 @@ The `resource-type` rule is intentionally open. New resource types may be added 
 ### 3.1.1 Relationship to the DID Core `idchar` production
 
 DID Core restricts the generic `method-specific-id` to `idchar` (no unescaped `/` or `@`). Like other registry-mediated methods that mirror upstream package identifiers, this specification intentionally admits `/` and `@` unescaped so a DID string is byte-identical to the upstream identifier it names (e.g. `@modelcontextprotocol/server-filesystem`). Consumers requiring strict generic-DID grammar MAY percent-encode; consumers within the cha2a ecosystem SHOULD accept the unescaped form. This deviation is deliberate and recorded here rather than left implicit.
+
+### 3.1.2 Normalization
+
+This method defines **no runtime normalization** for DID strings: a `did:cha2a` identifier is processed byte-for-byte as written.
+
+- The method-name (`cha2a`) and `resource-type` are constrained to lowercase by the ABNF in §3.1 (`ALPHA-LOWER`). An uppercase form (e.g. `did:CHA2A:agent:x`, `did:cha2a:AGENT:x`) is **syntactically invalid** and MUST be rejected by parsers and the Registry; it is never "normalized to lowercase and then accepted".
+- `resource-id` is **case-sensitive**: `did:cha2a:agent:foo` and `did:cha2a:agent:Foo` denote different DIDs and different registry records.
+- No percent-decoding, case folding, default-port elision, or other canonicalization is applied before resolution, signing, or hashing; signatures and content hashes operate on the original byte string.
+
+Consequently, the §4.1 collision check ("case-sensitive comparison on `resource-type` and `resource-id` after normalization") is simply a case-sensitive comparison of the full `did:cha2a:<resource-type>:<resource-id>` string over its raw bytes — since no normalization exists, "after normalization" is the identity function.
 
 ### 3.2 Resource type registry
 
@@ -316,6 +326,21 @@ Status is orthogonal to level: level says how strong the evidence is; status say
 - `delegation` (agent, L3) — endorsement/delegation chain.
 
 Predicate URIs: `https://cha2a.org/predicate/<name>/v1`. Implementations MAY accept predicate keywords (short names) for compatibility; whitelist matching is by keyword (case-insensitive contains).
+
+**Content integrity verification (artifact attestation, v0.3).** For AI assets (package / skill / model / dataset — any artifact carrying a `contentIdentity`), the Registry MAY provide a content-integrity verification endpoint (`/verify/artifact`) that aggregates four checks into a single machine-readable report:
+
+| Check | Basis | Pass condition |
+|---|---|---|
+| Content fingerprint (L1) | subject `contentIdentity` (or evidence `artifactDigest`) vs. provided current-content hash | exact digest match (SHA-256 or SHA-512; hex or base64 integrity format) |
+| Issuance attestation (L3) | at least one evidence credential with predicate `content-integrity` (or in-toto attestation), verifier = issuer/endorser, `result: passed` | exists, verifier resolvable |
+| Certification level | subject's `level` (L0-L4) | `level >= 1`; `>= 3` implies issuance attested |
+| Revocation (fail-closed) | subject status / revocations | NOT revoked; registry unavailable = FAIL (fail-closed) |
+
+- **New predicate** (extends §4.6 namespace): `content-integrity` (artifact, L1) — issuer/endorser attests the artifact's content fingerprint; MAY carry `artifactDigest` (anti-tamper binding).
+- **Result**: `PASS` / `FAIL` + machine-readable basis (which evidence, who endorsed, level, revocation state) — actionable by consumers (agents, stores, hosts) without re-deriving trust.
+- **Vocabulary alignment**: `contentIdentity` ("what is shipped", §3.2 / registry side) ↔ runtime `anchorId`/`anchorGeneration` ("what runs", reserved) — this section defines the registry-side verification semantics only; runtime-side semantics remain reserved (see mapping below).
+- **Boundary**: the endpoint verifies content integrity as attested by the Registry; it does not itself scan content (scanning remains a store/host concern) and does not guarantee content quality — only "what is shipped is what was published / endorsed / not revoked".
+
 
 
 
