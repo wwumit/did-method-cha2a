@@ -9,7 +9,7 @@
   (now byte-exact) and the conflicting "normalized to lowercase" wording in §2.
 - §4.6: add **content integrity verification** (artifact attestation) — `/verify/artifact` aggregation semantics: content fingerprint (L1) / issuance attestation (L3) / level / revocation (fail-closed); new predicate `content-integrity` (artifact, L1); vocabulary aligned with existing `contentIdentity` / `artifactDigest` / L1 content-fingerprint; boundary: verifies attested integrity, does not scan content.
 
-## Unreleased (v0.2) — 2026-08-27
+## 0.2.0 — 2026-08-27
 
 - §3.2: register `org` (carrier layer: number ranges/reachability), `provider` (application-layer SP), and `verifier` (independent verification entity, satisfying the §4.6 registration hard requirement).
 - New §3.3: `metadata.services` attachment semantics (string capability labels vs. object attachments to org/provider; dangling-reference and number-range validation on register AND update) + number-range grant (numbers belong to the Registry; ranges authorized to orgs; `POST /api/v1/number-range/grant` administrative + public `GET /api/v1/number-ranges`).

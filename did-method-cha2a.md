@@ -2,7 +2,7 @@
 
 ## The `did:cha2a` DID Method Specification
 
-**Version:** 0.1 (draft)
+**Version:** 0.3 (unreleased)
 **Status:** Draft — not yet registered in the W3C DID Extensions registry; reference implementation live at compliancehub.cn
 **License:** Apache License, Version 2.0
 **Editor:** wwumit (complianceHub)
@@ -214,80 +214,6 @@ The signature input MUST bind the request (method, parameters, timestamp, nonce)
 
 **Agent self-held key (`#agent-key`).** An agent MAY register its own Ed25519 public key (private key never leaves the agent's device) via `POST /api/v1/agent/key/register` (the agent DID must already be registered). The DID Document then exposes an additional verification method `#agent-key` with **controller = the agent DID itself**, alongside the default `#registry-key` (controller = the Registry). `#agent-key` is **appended, never replacing** `#registry-key`. Signatures by `#agent-key` attest "this agent is speaking" (self-attestation), not merely "the Registry has a record for this agent"; external services MAY prefer `#agent-key` for outbound-call identity (§4.5) when present. The agent-key serves as identity-anchor evidence (L1 subject attestation, §4.6).
 
-## 5. DID Document Structure
-
-A `did:cha2a` DID Document is a JSON-LD document conforming to DID Core. The reference implementation produces documents of the following shape:
-
-```json
-{
-  "@context": [
-    "https://www.w3.org/ns/did/v1",
-    "https://w3id.org/security/suites/ed25519-2020/v1"
-  ],
-  "id": "did:cha2a:skill:skill-compliance",
-  "verificationMethod": [
-    {
-      "id": "did:cha2a:skill:skill-compliance#registry-key",
-      "type": "Ed25519VerificationKey2020",
-      "controller": "did:cha2a:registry:compliancehub.cn",
-      "publicKeyMultibase": "z<base64url-encoded Ed25519 public key>"
-    }
-  ],
-  "authentication": [
-    "did:cha2a:skill:skill-compliance#registry-key"
-  ],
-  "assertionMethod": [
-    "did:cha2a:skill:skill-compliance#registry-key"
-  ],
-  "service": [
-    {
-      "id": "did:cha2a:skill:skill-compliance#trust-lookup",
-      "type": "TrustLookup",
-      "serviceEndpoint": "https://registry.example.com/api/v1/trust/query?type=skill&name=skill-compliance"
-    },
-    {
-      "id": "did:cha2a:skill:skill-compliance#trust-proof",
-      "type": "TrustProof",
-      "serviceEndpoint": "https://registry.example.com/api/v1/trust/proof?did=did%3Acha2a%3Askill%3Askill-compliance"
-    },
-    {
-      "id": "did:cha2a:skill:skill-compliance#badge",
-      "type": "TrustBadge",
-      "serviceEndpoint": "https://registry.example.com/badge/skill/skill-compliance"
-    }
-  ],
-  "created": "2026-08-18T00:00:00Z",
-  "updated": "2026-08-18T00:00:00Z"
-}
-```
-
-### 5.1 Verification relationships
-
-A DID Document MAY carry an optional `nationalStandardId` property declaring the national standard identity code (GB/Z 185.2 OID) of the subject, for compliance mapping; presence of the field with a valid code satisfies the national-standard identity-code requirement, while cryptographic verification always uses the `verificationMethod` keys.
-
-Every `did:cha2a` DID Document SHALL bind its `verificationMethod` to a purpose through the DID Core verification relationships `authentication` and `assertionMethod`. Per DID Core, a verifier MUST NOT treat a key as valid for authentication or assertion unless the DID Document lists it under the corresponding relationship. The reference implementation binds the Registry's single signing key once and reuses it.
-
-### 5.2 Discovery document
-
-A cha2a Registry SHOULD expose a discovery document at `/.well-known/cha2a` advertising its capabilities, its currently-valid `publicKeys`, its own registry DID, and its `supportedMethods` array:
-
-```json
-{
-  "capabilities": ["trust-proof", "federation", "advisory-feed", "revocation"],
-  "endpoints": {
-    "didResolve": "/api/v1/did/{did}",
-    "trustLookup": "/api/v1/trust/query",
-    "trustProof": "/api/v1/trust/proof"
-  },
-  "publicKeys": [
-    { "version": 1, "algorithm": "Ed25519", "publicKey": "<base64>", "status": "signing", "createdAt": "<ISO-8601>" }
-  ],
-  "registryDid": "did:cha2a:registry:compliancehub.cn",
-  "supportedMethods": ["did:cha2a"],
-  "version": "1.0"
-}
-```
-
 ### 4.6 Certification levels (L0-L4)
 
 A certification level is a verifier-facing signal about a registered resource, determined by the **verifier's local policy** — never by issuer declaration alone and never by any mutual-recognition agreement between registries:
@@ -374,6 +300,80 @@ The registry side attests "what is shipped is what was published" (L1 content fi
 
 Implementations MAY evolve runtime attestation later; this section pins the shared terms so ecosystem proposals do not develop separate dialects.
 
+## 5. DID Document Structure
+
+A `did:cha2a` DID Document is a JSON-LD document conforming to DID Core. The reference implementation produces documents of the following shape:
+
+```json
+{
+  "@context": [
+    "https://www.w3.org/ns/did/v1",
+    "https://w3id.org/security/suites/ed25519-2020/v1"
+  ],
+  "id": "did:cha2a:skill:skill-compliance",
+  "verificationMethod": [
+    {
+      "id": "did:cha2a:skill:skill-compliance#registry-key",
+      "type": "Ed25519VerificationKey2020",
+      "controller": "did:cha2a:registry:compliancehub.cn",
+      "publicKeyMultibase": "z<base64url-encoded Ed25519 public key>"
+    }
+  ],
+  "authentication": [
+    "did:cha2a:skill:skill-compliance#registry-key"
+  ],
+  "assertionMethod": [
+    "did:cha2a:skill:skill-compliance#registry-key"
+  ],
+  "service": [
+    {
+      "id": "did:cha2a:skill:skill-compliance#trust-lookup",
+      "type": "TrustLookup",
+      "serviceEndpoint": "https://registry.example.com/api/v1/trust/query?type=skill&name=skill-compliance"
+    },
+    {
+      "id": "did:cha2a:skill:skill-compliance#trust-proof",
+      "type": "TrustProof",
+      "serviceEndpoint": "https://registry.example.com/api/v1/trust/proof?did=did%3Acha2a%3Askill%3Askill-compliance"
+    },
+    {
+      "id": "did:cha2a:skill:skill-compliance#badge",
+      "type": "TrustBadge",
+      "serviceEndpoint": "https://registry.example.com/badge/skill/skill-compliance"
+    }
+  ],
+  "created": "2026-08-18T00:00:00Z",
+  "updated": "2026-08-18T00:00:00Z"
+}
+```
+
+### 5.1 Verification relationships
+
+A DID Document MAY carry an optional `nationalStandardId` property declaring the national standard identity code (GB/Z 185.2 OID) of the subject, for compliance mapping; presence of the field with a valid code satisfies the national-standard identity-code requirement, while cryptographic verification always uses the `verificationMethod` keys.
+
+Every `did:cha2a` DID Document SHALL bind its `verificationMethod` to a purpose through the DID Core verification relationships `authentication` and `assertionMethod`. Per DID Core, a verifier MUST NOT treat a key as valid for authentication or assertion unless the DID Document lists it under the corresponding relationship. The reference implementation binds the Registry's single signing key once and reuses it.
+
+### 5.2 Discovery document
+
+A cha2a Registry SHOULD expose a discovery document at `/.well-known/cha2a` advertising its capabilities, its currently-valid `publicKeys`, its own registry DID, and its `supportedMethods` array:
+
+```json
+{
+  "capabilities": ["trust-proof", "federation", "advisory-feed", "revocation"],
+  "endpoints": {
+    "didResolve": "/api/v1/did/{did}",
+    "trustLookup": "/api/v1/trust/query",
+    "trustProof": "/api/v1/trust/proof"
+  },
+  "publicKeys": [
+    { "version": 1, "algorithm": "Ed25519", "publicKey": "<base64>", "status": "signing", "createdAt": "<ISO-8601>" }
+  ],
+  "registryDid": "did:cha2a:registry:compliancehub.cn",
+  "supportedMethods": ["did:cha2a"],
+  "version": "1.0"
+}
+```
+
 ## 6. Security Considerations
 
 - **Registry-mediated trust.** The method is not fully decentralized in the sense of `did:key` or `did:peer`. A verifier's trust in a resolved DID is exactly its trust in the configured Registry resolver. This is stated honestly; deployments SHOULD document their resolver choice.
@@ -414,4 +414,4 @@ Editorial changes (typos, links, wording) MAY merge without the quiet period.
 
 ---
 
-*Draft v0.1. Editor: wwumit (complianceHub). License: Apache-2.0.*
+*v0.3 (unreleased). Editor: wwumit (complianceHub). License: Apache-2.0.*
