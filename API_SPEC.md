@@ -33,7 +33,7 @@
 |---|---|---|
 | GET | `/api/v1/did/<did>` | DID Document（公钥/验证方法）|
 | GET | `/api/v1/agent/list` | 已注册 agent 列表 |
-| POST | `/api/v1/register` | 注册主体（admin）|
+| POST | `/api/v1/register` | 注册主体（admin）——**`id` 传短名**（不含 `did:cha2a:` 前缀；传完整 did 会 400，见下方约定）|
 | POST | `/api/v1/update` | 更新记录（admin）|
 | POST | `/api/v1/deactivate` | 停用（admin）|
 | POST | `/api/v1/agent/key/register` | 登记 agent 公钥（#agent-key）|
@@ -61,7 +61,13 @@
 | GET | `/api/v1/phone/resolve?number=` | 号码 → agent DID + 等级（寻址核心）|
 | GET | `/api/v1/phone/lookup?did=` | DID → 号码 |
 | GET | `/api/v1/phone/directory` | 号码簿（公开目录）|
-| POST | `/api/v1/phone/apply` | 开户申请（送体验额度）|
+| POST | `/api/v1/phone/apply` | 开户申请（送体验额度）——**`agentDid` 传完整 did**（与 register 短名区分）|
+
+> **标识符约定（B1 澄清，2026-09-02）**：`POST /api/v1/register` 的 `id` 是**短名**
+> （如 `myagent` → 生成 `did:cha2a:agent:myagent`）；`POST /api/v1/phone/apply` 的 `agentDid`
+> 是**完整 did**。两处端点职责不同（register=建主体、apply=给已注册主体开户），标识符形态也因此
+> 不同——**不允许把完整 did 当短名 id 传入 register**（服务端 400 拒绝，防嵌套畸形
+> `did:cha2a:agent:did:cha2a:agent:x`）。客户端实现请注意两套约定。
 | POST | `/api/v1/phone/register` | 绑定号码（admin）|
 | POST | `/api/v1/phone/deactivate` | 停用号码（admin）|
 
@@ -106,6 +112,12 @@ curl "https://compliancehub.cn/api/v1/phone/resolve?number=%2B86951230001"
 {"number":"+86951230001","registered":true,"agentDid":"did:cha2a:agent:dshlib",
  "trust":{"level":2,"name":"L2 source"},"suspicious":false}
 ```
+
+**`suspicious` 字段定义（B3 澄清，2026-09-02）**：号码解析响应的**风险派生标记**，非独立风险信号——
+`suspicious = true` 当且仅当该号码对应的 DID 不可信（未注册号码 / 绑定 DID 未找到 / `!active` / `revoked` /
+`level === 0`），并附 `reason` 说明（`unregistered number` / `bound DID not found` / 等级或状态原因）。
+`false` 表示号码绑定到可信（level≥1 且 active 未撤销）DID。消费方不应把 `suspicious` 当额外风险维度，
+它就是等级/状态的低级便捷汇总。
 
 ### 2. 信任查询（等级 + 状态）
 
