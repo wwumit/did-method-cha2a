@@ -50,7 +50,7 @@ Registry-mediated DID methods (a registry assigns the DID, holds the controller 
 
 The method name that shall identify this DID method is: `cha2a`.
 
-A DID that uses this method MUST begin with the following literal prefix: `did:cha2a:`. The prefix is written in lowercase (`cha2a` per the ABNF in §3.1, `ALPHA-LOWER`); an uppercase variant such as `did:CHA2A:` is syntactically invalid — see §3.1.2 (no normalization is applied). All bytes are US-ASCII.
+A DID that uses this method MUST begin with the following literal prefix: `did:cha2a:`. The prefix and the method name are **case-sensitive lowercase**; an uppercase variant is not a valid `did:cha2a` DID and MUST be rejected (see §3.4). All bytes are US-ASCII.
 
 **Naming note:** the prefix `ch` is an abbreviation for **complianceHub** (the maintainer's ecosystem and brand). The method name is stable and the definition is not tied to any other expansion.
 
@@ -77,16 +77,6 @@ The `resource-type` rule is intentionally open. New resource types may be added 
 ### 3.1.1 Relationship to the DID Core `idchar` production
 
 DID Core restricts the generic `method-specific-id` to `idchar` (no unescaped `/` or `@`). Like other registry-mediated methods that mirror upstream package identifiers, this specification intentionally admits `/` and `@` unescaped so a DID string is byte-identical to the upstream identifier it names (e.g. `@modelcontextprotocol/server-filesystem`). Consumers requiring strict generic-DID grammar MAY percent-encode; consumers within the cha2a ecosystem SHOULD accept the unescaped form. This deviation is deliberate and recorded here rather than left implicit.
-
-### 3.1.2 Normalization
-
-This method defines **no runtime normalization** for DID strings: a `did:cha2a` identifier is processed byte-for-byte as written.
-
-- The method-name (`cha2a`) and `resource-type` are constrained to lowercase by the ABNF in §3.1 (`ALPHA-LOWER`). An uppercase form (e.g. `did:CHA2A:agent:x`, `did:cha2a:AGENT:x`) is **syntactically invalid** and MUST be rejected by parsers and the Registry; it is never "normalized to lowercase and then accepted".
-- `resource-id` is **case-sensitive**: `did:cha2a:agent:foo` and `did:cha2a:agent:Foo` denote different DIDs and different registry records.
-- No percent-decoding, case folding, default-port elision, or other canonicalization is applied before resolution, signing, or hashing; signatures and content hashes operate on the original byte string.
-
-Consequently, the §4.1 collision check ("case-sensitive comparison on `resource-type` and `resource-id` after normalization") is simply a case-sensitive comparison of the full `did:cha2a:<resource-type>:<resource-id>` string over its raw bytes — since no normalization exists, "after normalization" is the identity function.
 
 ### 3.2 Resource type registry
 
@@ -131,6 +121,32 @@ Numbers are a Registry asset: the Registry is the neutral authority over number 
 
 The grant record is a first-class predicate (`number-range-grant`), usable as L2+ carrier evidence in the trust model.
 
+### 3.4 Identifier normalization
+
+Implementations MUST treat the literal prefix `did:cha2a:` and the `resource-type` slot as
+**case-sensitive lowercase**: a DID whose prefix or `resource-type` contains uppercase
+characters is not a valid `did:cha2a` DID and MUST be rejected rather than normalized.
+
+The `resource-id` slot is **case-preserving**. Resolvers and registries MUST NOT lowercase,
+uppercase, or otherwise case-fold a `resource-id`, and MUST NOT perform Unicode
+normalization on it. The `resource-id` is compared byte-for-byte; two `resource-id` values
+that differ only in case denote **different** resources.
+
+This requirement follows from §3.1.1: a `did:cha2a` DID string is byte-identical to the
+upstream identifier it names, and several upstream ecosystems treat identifier case as
+significant (for example GitHub repository paths such as `Microsoft/vscode`). Case-folding
+would break the correspondence between a DID and the upstream artifact it attests to, and
+would therefore undermine source attestation itself.
+
+An input `resource-id` that is not already in the form used by its upstream ecosystem does
+not denote that upstream resource. Registries SHOULD surface a warning at registration time
+when a submitted `resource-id` differs from the canonical upstream form, but MUST NOT
+rewrite it.
+
+Resolution is byte-exact: a resolution request for a `did:cha2a` DID whose `resource-id`
+differs in case from a registered resource MUST return the same response as for any
+unregistered DID (404), and MUST NOT resolve to the case-differing resource.
+
 ## 4. Method Operations
 
 A cha2a Registry exposes the DID method operations as HTTP API endpoints. The exact URL paths below are those served by the reference implementation (§8) and may differ for other deployments.
@@ -139,7 +155,7 @@ A cha2a Registry exposes the DID method operations as HTTP API endpoints. The ex
 
 A `did:cha2a` DID is created as a side effect of registering a resource. The Registry assigns the DID at registration time using the form `did:cha2a:<resource-type>:<resource-id>` and writes it into the registry record.
 
-The Registry SHOULD reject a registration whose resulting DID would collide with an existing registered DID (case-sensitive comparison on `resource-type` and `resource-id` after normalization).
+The Registry SHOULD reject a registration whose resulting DID would collide with an existing registered DID (byte-exact comparison on `resource-type` and `resource-id`, see §3.4; the two slots MUST NOT be case-folded).
 
 Resources are typically registered by an authenticated publisher submitting metadata through the Registry's registration endpoint, or by an ingestion pipeline from upstream registries (npm, PyPI, Hugging Face, GitHub) assigning a `did:cha2a:` identifier at admission time.
 
@@ -159,6 +175,8 @@ Cache-Control:   public, max-age=300
 ```
 
 If the resource named by the DID is not registered, the Registry MUST reply `404 Not Found` with a JSON body of the form `{"error": "resource not found: <type>/<id>"}`. A DID that violates the §3.1 syntax MUST be answered with `400 Bad Request` and a JSON body naming the defect.
+
+Per §3.4, resolution is byte-exact: a request whose `resource-id` differs in case from a registered resource is treated as unregistered (`404 Not Found`) and MUST NOT be case-corrected to a registered resource.
 
 Resolvers MAY cache successful resolutions per the `Cache-Control` header; resolvers SHOULD NOT cache 4xx responses.
 

@@ -1,3 +1,14 @@
+## Unreleased (v0.3) — 2026-08-29
+
+- New §3.4: **Identifier normalization** — the literal prefix and `resource-type` are case-sensitive
+  lowercase (uppercase variants are invalid and rejected, never normalized); `resource-id` is
+  **case-preserving**, compared byte-for-byte (values differing only in case denote different
+  resources, no Unicode normalization, no case folding); resolution is byte-exact (case-mismatch
+  → 404, never case-corrected). Consequence of §3.1.1 byte-identity with upstream identifiers
+  (e.g. GitHub `Microsoft/vscode`). Fixes the previously undefined "after normalization" in §4.1
+  (now byte-exact) and the conflicting "normalized to lowercase" wording in §2.
+- §4.6: add **content integrity verification** (artifact attestation) — `/verify/artifact` aggregation semantics: content fingerprint (L1) / issuance attestation (L3) / level / revocation (fail-closed); new predicate `content-integrity` (artifact, L1); vocabulary aligned with existing `contentIdentity` / `artifactDigest` / L1 content-fingerprint; boundary: verifies attested integrity, does not scan content.
+
 ## Unreleased (v0.2) — 2026-08-27
 
 - §3.2: register `org` (carrier layer: number ranges/reachability), `provider` (application-layer SP), and `verifier` (independent verification entity, satisfying the §4.6 registration hard requirement).
