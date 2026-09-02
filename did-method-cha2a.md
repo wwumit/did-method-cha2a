@@ -2,7 +2,7 @@
 
 ## The `did:cha2a` DID Method Specification
 
-**Version:** 0.1 (draft)
+**Version:** 0.3 (unreleased)
 **Status:** Draft — not yet registered in the W3C DID Extensions registry; reference implementation live at compliancehub.cn
 **License:** Apache License, Version 2.0
 **Editor:** wwumit (complianceHub)
@@ -58,7 +58,7 @@ The did:cha2a method is designed to coexist with the A2A (Agent2Agent) protocol 
 
 The method name that shall identify this DID method is: `cha2a`.
 
-A DID that uses this method MUST begin with the following literal prefix: `did:cha2a:`. The prefix is normalized to lowercase. All bytes are US-ASCII.
+A DID that uses this method MUST begin with the following literal prefix: `did:cha2a:`. The prefix and the method name are **case-sensitive lowercase**; an uppercase variant is not a valid `did:cha2a` DID and MUST be rejected (see §3.4). All bytes are US-ASCII.
 
 **Naming note:** the prefix `ch` is an abbreviation for **complianceHub** (the maintainer's ecosystem and brand). The method name is stable and the definition is not tied to any other expansion.
 
@@ -129,6 +129,32 @@ Numbers are a Registry asset: the Registry is the neutral authority over number 
 
 The grant record is a first-class predicate (`number-range-grant`), usable as L2+ carrier evidence in the trust model.
 
+### 3.4 Identifier normalization
+
+Implementations MUST treat the literal prefix `did:cha2a:` and the `resource-type` slot as
+**case-sensitive lowercase**: a DID whose prefix or `resource-type` contains uppercase
+characters is not a valid `did:cha2a` DID and MUST be rejected rather than normalized.
+
+The `resource-id` slot is **case-preserving**. Resolvers and registries MUST NOT lowercase,
+uppercase, or otherwise case-fold a `resource-id`, and MUST NOT perform Unicode
+normalization on it. The `resource-id` is compared byte-for-byte; two `resource-id` values
+that differ only in case denote **different** resources.
+
+This requirement follows from §3.1.1: a `did:cha2a` DID string is byte-identical to the
+upstream identifier it names, and several upstream ecosystems treat identifier case as
+significant (for example GitHub repository paths such as `Microsoft/vscode`). Case-folding
+would break the correspondence between a DID and the upstream artifact it attests to, and
+would therefore undermine source attestation itself.
+
+An input `resource-id` that is not already in the form used by its upstream ecosystem does
+not denote that upstream resource. Registries SHOULD surface a warning at registration time
+when a submitted `resource-id` differs from the canonical upstream form, but MUST NOT
+rewrite it.
+
+Resolution is byte-exact: a resolution request for a `did:cha2a` DID whose `resource-id`
+differs in case from a registered resource MUST return the same response as for any
+unregistered DID (404), and MUST NOT resolve to the case-differing resource.
+
 ## 4. Method Operations
 
 A cha2a Registry exposes the DID method operations as HTTP API endpoints. The exact URL paths below are those served by the reference implementation (§8) and may differ for other deployments.
@@ -137,7 +163,7 @@ A cha2a Registry exposes the DID method operations as HTTP API endpoints. The ex
 
 A `did:cha2a` DID is created as a side effect of registering a resource. The Registry assigns the DID at registration time using the form `did:cha2a:<resource-type>:<resource-id>` and writes it into the registry record.
 
-The Registry SHOULD reject a registration whose resulting DID would collide with an existing registered DID (case-sensitive comparison on `resource-type` and `resource-id` after normalization).
+The Registry SHOULD reject a registration whose resulting DID would collide with an existing registered DID (byte-exact comparison on `resource-type` and `resource-id`, see §3.4; the two slots MUST NOT be case-folded).
 
 Resources are typically registered by an authenticated publisher submitting metadata through the Registry's registration endpoint, or by an ingestion pipeline from upstream registries (npm, PyPI, Hugging Face, GitHub) assigning a `did:cha2a:` identifier at admission time.
 
@@ -157,6 +183,8 @@ Cache-Control:   public, max-age=300
 ```
 
 If the resource named by the DID is not registered, the Registry MUST reply `404 Not Found` with a JSON body of the form `{"error": "resource not found: <type>/<id>"}`. A DID that violates the §3.1 syntax MUST be answered with `400 Bad Request` and a JSON body naming the defect.
+
+Per §3.4, resolution is byte-exact: a request whose `resource-id` differs in case from a registered resource is treated as unregistered (`404 Not Found`) and MUST NOT be case-corrected to a registered resource.
 
 Resolvers MAY cache successful resolutions per the `Cache-Control` header; resolvers SHOULD NOT cache 4xx responses.
 
@@ -254,6 +282,22 @@ Predicate URIs: `https://cha2a.org/predicate/<name>/v1`. Implementations MAY acc
 **Namespace unification.** `https://cha2a.org/predicate/` is the canonical predicate namespace for subject predicates. Attestation predicates (machine-readable verification evidence) follow the Evidence Record model (see below) and reference existing in-toto predicates where they exist (e.g. `https://in-toto.io/attestation/test-result/v0.1`, `https://in-toto.io/attestation/vuln/v0.1`); extensions are defined under `https://cha2a.org/predicate/` with a `cha2a/*` marker. Business predicates are registered in this whitelist with the same canonical namespace — e.g. `payment-receipt` (a verifiable payment receipt issued by an agent-payment service, used as L2+ evidence of a completed transaction). Implementations deployed under an instance domain (e.g. `compliancehub.cn`) MAY additionally accept that domain's path form (`<instance-domain>/evidence/<name>`) as a compatibility alias for already-issued records; the normative URI is always `https://cha2a.org/predicate/<name>/v1`.
 
 **Evidence Record structure (integrated with the evidence-record.md companion).** The registry stores a credential **summary** (subject + predicateType + verifier + result + checkedAt + evidenceRef), not full evidence. The full Evidence Record is an in-toto Attestation envelope: the Envelope is DSSE-signed by the verifier's key (signature = verifier identity, a registered `verifier` DID), and the Statement carries the subject and predicate details. `evidenceRef` is the URL of the auditable evidence store (in-toto `url` field usage). Conformance of the full structure is defined in the companion `evidence-record.md`; this section pins the registry-facing contract.
+**Content integrity verification (artifact attestation, v0.3).** For AI assets (package / skill / model / dataset — any artifact carrying a `contentIdentity`), the Registry MAY provide a content-integrity verification endpoint (`/verify/artifact`) that aggregates four checks into a single machine-readable report:
+
+| Check | Basis | Pass condition |
+|---|---|---|
+| Content fingerprint (L1) | subject `contentIdentity` (or evidence `artifactDigest`) vs. provided current-content hash | exact digest match (SHA-256 or SHA-512; hex or base64 integrity format) |
+| Issuance attestation (L3) | at least one evidence credential with predicate `content-integrity` (or in-toto attestation), verifier = issuer/endorser, `result: passed` | exists, verifier resolvable |
+| Certification level | subject's `level` (L0-L4) | `level >= 1`; `>= 3` implies issuance attested |
+| Revocation (fail-closed) | subject status / revocations | NOT revoked; registry unavailable = FAIL (fail-closed) |
+
+- **New predicate** (extends §4.6 namespace): `content-integrity` (artifact, L1) — issuer/endorser attests the artifact's content fingerprint; MAY carry `artifactDigest` (anti-tamper binding).
+- **Result**: `PASS` / `FAIL` + machine-readable basis (which evidence, who endorsed, level, revocation state) — actionable by consumers (agents, stores, hosts) without re-deriving trust.
+- **Vocabulary alignment**: `contentIdentity` ("what is shipped", §3.2 / registry side) ↔ runtime `anchorId`/`anchorGeneration` ("what runs", reserved) — this section defines the registry-side verification semantics only; runtime-side semantics remain reserved (see mapping below).
+- **Boundary**: the endpoint verifies content integrity as attested by the Registry; it does not itself scan content (scanning remains a store/host concern) and does not guarantee content quality — only "what is shipped is what was published / endorsed / not revoked".
+
+
+
 
 The registry side attests "what is shipped is what was published" (L1 content fingerprint). A complementary runtime side attests "what runs is what was verified" (e.g. a host runtime binding a captured tool definition and a monotonic anchor generation at execution, as discussed in ecosystem proposals on ToolRuntime settlement anchors). To keep vocabulary aligned across proposals, this specification reserves the following mapping — it is vocabulary reservation only, no runtime behavior is defined here:
 
@@ -476,4 +520,4 @@ Normative requirements appear only in this document; companion documents are inf
 
 ---
 
-*Draft v0.1. Editor: wwumit (complianceHub). License: Apache-2.0.*
+*v0.3 (unreleased). Editor: wwumit (complianceHub). License: Apache-2.0.*
