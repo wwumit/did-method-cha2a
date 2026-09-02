@@ -47,4 +47,4 @@ agent-to-agent（智能体间通信）。
 ## 六、状态与版本
 
 - Draft（未注册进 W3C DID Extensions registry）；当前开发态 **v0.3 (unreleased)**
-- 变更流程：substantive 变更走 PR + 3 天冷静期（见规范 §9）
+- 变更流程：substantive 变更走 PR + 1 天冷静期（下限，评审者可要求延长；见规范 §9）
