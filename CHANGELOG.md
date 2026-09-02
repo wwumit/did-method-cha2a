@@ -1,3 +1,7 @@
+## Unreleased (v0.3)
+
+- §9: quiet period 3 → 1 days (sole-editor self-review; the period is a minimum gate, not a deadline — any reviewer may request a longer period before merge).
+
 ## Unreleased (v0.2) — 2026-08-27
 
 - §3.2: register `org` (carrier layer: number ranges/reachability), `provider` (application-layer SP), and `verifier` (independent verification entity, satisfying the §4.6 registration hard requirement).

@@ -453,7 +453,7 @@ The conformance suite (fixtures, reference verifiers, `MANIFEST.sha256`) is publ
 
 ## 10. Versioning and Change Process
 
-Revisions to this specification are recorded in the repository's `CHANGELOG.md`. Substantive changes (changes to the ABNF, the registered resource types, the operation surface, the DID Document shape, or the security model) SHALL be accompanied by a version bump and a pull request that requires review by the editor(s) listed in `MAINTAINERS.md` and a **3-day quiet period** before merge (reduced from 7 days in v0.2: the maintainer is the sole editor — self-review — so the quiet period serves as a cooling-off / community-notice window rather than an external-review dependency; public discussion continues indefinitely via the proposal thread, 3 days is the merge gate only).
+Revisions to this specification are recorded in the repository's `CHANGELOG.md`. Substantive changes (changes to the ABNF, the registered resource types, the operation surface, the DID Document shape, or the security model) SHALL be accompanied by a version bump and a pull request that requires review by the editor(s) listed in `MAINTAINERS.md` and a **1-day quiet period** before merge (reduced from 7 days in v0.2 and from 3 days in v0.3: the maintainer is the sole editor — self-review — so the quiet period serves as a cooling-off / community-notice window rather than an external-review dependency; public discussion continues indefinitely via the proposal thread). The quiet period is a **minimum gate, not a deadline**: any reviewer may request a longer period before merge.
 
 Editorial changes (typos, links, wording) MAY merge without the quiet period.
 
