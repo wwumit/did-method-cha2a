@@ -2,7 +2,7 @@
 
 ## The `did:cha2a` DID Method Specification
 
-**Version:** 0.3 (unreleased)
+**Version:** 0.4 (unreleased)
 **Status:** Draft — not yet registered in the W3C DID Extensions registry; reference implementation live at compliancehub.cn
 **License:** Apache License, Version 2.0
 **Editor:** wwumit (complianceHub)
@@ -490,6 +490,8 @@ Conformance is demonstrated over the following normative surface, each item with
 | CRUD operations | §4.1 Create, §4.2 Read (Resolve), §4.3 Update, §4.4 Deactivate |
 | Outbound caller authentication | §4.5 (X-DID / X-DID-Sig verification) |
 | Certification levels & evidence | §4.6 L0-L4 computation, evidence credential schema, revocation fail-closed |
+| Federation peer profile (v0.4) | §4.2.1 trust-lookup semantics: local-first, explicit-peer forward only, fail-closed (no implicit peering, no fabricated results) |
+| Content integrity verification | §4.7 artifact-attestation four-check aggregation (content fingerprint / issuance attestation / level / revocation fail-closed) |
 | DID Document structure | §5 (verificationMethod, verification relationships, service endpoints, discovery document §5.2) |
 | Signature verification | Ed25519 verification of registry-issued trust proofs against discovery `publicKeys` |
 
@@ -502,12 +504,12 @@ In addition to fixtures, conformance SHOULD be demonstrated against a *running* 
 The following are explicitly out of the conformance suite's coverage until further notice:
 
 - **L4 ecosystem state**: requires ≥2 *independent* real verifiers with auditable re-verification (§4.6) — not provable by fixtures alone; tracked as a target ecosystem state, not a fixture verdict.
-- **Federation**: out of scope for this specification (§4.2.1).
-- **Runtime attestation vocabulary** (§4.7): reserved, no runtime behavior defined.
+- **Federation across real registries**: v0.4 specifies the peer profile minimally (§4.2.1 + §7.5); its offline semantics (local-first, explicit-peer forward, fail-closed) are covered by conformance vectors, but interoperation between two real deployments is not yet verified (no second live registry).
+- **Runtime attestation vocabulary** (§4.7): the runtime-side vocabulary is reserved, no runtime behavior defined; the registry-side content-integrity checks in the same section are covered by conformance vectors.
 
 ### 9.5 Conformance assets
 
-The conformance suite (fixtures, reference verifiers, `MANIFEST.sha256`) is published in this repository's `conformance/` directory, aligned with the opena2a `atx-conformance`/`atp-conformance` pattern. **Current status: test vectors and reference verifiers are planned and tracked as conformance work; §8 records the verification evidence available today (recorded minimum-loop runs).** Implementations claiming conformance MUST publish or reference their own vectors for any subset they claim beyond what this suite provides.
+The conformance suite (fixtures, reference verifiers, `MANIFEST.sha256`) is published in the companion repository **`cha2a-conformance`** (byte-stable fixtures, SHA-256-pinned in `MANIFEST.sha256`, judged by two SDK-independent reference verifiers — Python and Node — with parity interlock). **Current status: 68 fixtures (incl. §4.2.1 federation semantics and §4.7 content-integrity four-check vectors) judged 68/68 PASS by both verifiers; live checks against the running reference registry pass for the endpoints it exposes (§8); negative-vector ratio >1/3; CI enforces manifest pinning, count anti-drift, cross-repo version consistency, and reverse coverage of normative blocks.** Implementations claiming conformance MUST publish or reference their own vectors for any subset they claim beyond what this suite provides.
 
 ## 10. Versioning and Change Process
 
