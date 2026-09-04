@@ -36,7 +36,7 @@ The method supports a four-layer identity model:
 did:cha2a:registry:compliancehub.cn
 did:cha2a:publisher:compliancehub.cn
 did:cha2a:authority:compliancehub.cn
-did:cha2a:skill:skill-compliance
+did:cha2a:skill:skill-example
 did:cha2a:agent:compliancehub.cn:agents:001
 did:cha2a:agent:agent_conformance_test_001#key-1
 did:cha2a:publisher:example-marketplace.com
@@ -238,7 +238,7 @@ A certification level is a verifier-facing signal about a registered resource, d
 | Level | Meaning | Basis (per resource metadata) |
 |---|---|---|
 | L0 | unverified | no declaration (default) |
-| L1 | integrity | content fingerprint (contentIdentity/contentHash) |
+| L1 | integrity | content fingerprint (`contentIdentity`/`contentHash`) for content resources; `#agent-key` key anchoring (identity-anchor) for agents |
 | L2 | source | L1 + author attribution |
 | L3 | issuance | L2 + publisher/store attestation (e.g. a marketplace or verifier that reviewed the listing) |
 | L4 | ecosystem | L3 + ≥2 independent verifiers (distinct verifier DIDs), each with a structured `verifiedBy` entry, + disclosure consistency |
@@ -253,8 +253,7 @@ A verifier decides which levels to accept by enumerating the publishers and atte
 
 **Verifier-as-publisher (explicit case).** A common deployment has a single entity acting as both verifier and L3 issuer (e.g. a store that verifies listings and publishes them under its own `publisher` DID). This is deliberate and consistent with local-policy verification: the meaning is "**this verifier's trusted set includes that publisher's signatures**", not "that publisher stamped the listing". Readers MUST NOT interpret an L3 badge as a third-party seal independent of the verifier's policy; implementations SHOULD expose which publisher signatures the local policy trusts alongside the displayed level.
 
-### 4.7 Runtime attestation vocabulary (reserved)
-#### Evidence credentials, verification status, and predicate namespace
+### 4.7 Evidence credentials and verification
 
 **Evidence credential.** A verifier's predicate-level check on a subject is recorded as an evidence credential:
 
@@ -291,7 +290,7 @@ Predicate URIs: `https://cha2a.org/predicate/<name>/v1`. Implementations MAY acc
 **Namespace unification.** `https://cha2a.org/predicate/` is the canonical predicate namespace for subject predicates. Attestation predicates (machine-readable verification evidence) follow the Evidence Record model (see below) and reference existing in-toto predicates where they exist (e.g. `https://in-toto.io/attestation/test-result/v0.1`, `https://in-toto.io/attestation/vuln/v0.1`); extensions are defined under `https://cha2a.org/predicate/` with a `cha2a/*` marker. Business predicates are registered in this whitelist with the same canonical namespace — e.g. `payment-receipt` (a verifiable payment receipt issued by an agent-payment service, used as L2+ evidence of a completed transaction). Implementations deployed under an instance domain (e.g. `compliancehub.cn`) MAY additionally accept that domain's path form (`<instance-domain>/evidence/<name>`) as a compatibility alias for already-issued records; the normative URI is always `https://cha2a.org/predicate/<name>/v1`.
 
 **Evidence Record structure (integrated with the evidence-record.md companion).** The registry stores a credential **summary** (subject + predicateType + verifier + result + checkedAt + evidenceRef), not full evidence. The full Evidence Record is an in-toto Attestation envelope: the Envelope is DSSE-signed by the verifier's key (signature = verifier identity, a registered `verifier` DID), and the Statement carries the subject and predicate details. `evidenceRef` is the URL of the auditable evidence store (in-toto `url` field usage). Conformance of the full structure is defined in the companion `evidence-record.md`; this section pins the registry-facing contract.
-**Content integrity verification (artifact attestation, v0.3).** For AI assets (package / skill / model / dataset — any artifact carrying a `contentIdentity`), the Registry MAY provide a content-integrity verification endpoint (`/verify/artifact`) that aggregates four checks into a single machine-readable report:
+**Content integrity verification (artifact attestation).** For AI assets (package / skill / model / dataset — any artifact carrying a `contentIdentity`), the Registry MAY provide a content-integrity verification endpoint (`/verify/artifact`) that aggregates four checks into a single machine-readable report:
 
 | Check | Basis | Pass condition |
 |---|---|---|
@@ -305,8 +304,7 @@ Predicate URIs: `https://cha2a.org/predicate/<name>/v1`. Implementations MAY acc
 - **Vocabulary alignment**: `contentIdentity` ("what is shipped", §3.2 / registry side) ↔ runtime `anchorId`/`anchorGeneration` ("what runs", reserved) — this section defines the registry-side verification semantics only; runtime-side semantics remain reserved (see mapping below).
 - **Boundary**: the endpoint verifies content integrity as attested by the Registry; it does not itself scan content (scanning remains a store/host concern) and does not guarantee content quality — only "what is shipped is what was published / endorsed / not revoked".
 
-
-
+### 4.8 Runtime attestation vocabulary (reserved)
 
 The registry side attests "what is shipped is what was published" (L1 content fingerprint). A complementary runtime side attests "what runs is what was verified" (e.g. a host runtime binding a captured tool definition and a monotonic anchor generation at execution, as discussed in ecosystem proposals on ToolRuntime settlement anchors). To keep vocabulary aligned across proposals, this specification reserves the following mapping — it is vocabulary reservation only, no runtime behavior is defined here:
 
@@ -330,36 +328,36 @@ A `did:cha2a` DID Document is a JSON-LD document conforming to DID Core. The ref
     "https://www.w3.org/ns/did/v1",
     "https://w3id.org/security/suites/ed25519-2020/v1"
   ],
-  "id": "did:cha2a:skill:skill-compliance",
+  "id": "did:cha2a:skill:skill-example",
   "verificationMethod": [
     {
-      "id": "did:cha2a:skill:skill-compliance#registry-key",
+      "id": "did:cha2a:skill:skill-example#registry-key",
       "type": "Ed25519VerificationKey2020",
       "controller": "did:cha2a:registry:compliancehub.cn",
       "publicKeyMultibase": "z<base64url-encoded Ed25519 public key>"
     }
   ],
   "authentication": [
-    "did:cha2a:skill:skill-compliance#registry-key"
+    "did:cha2a:skill:skill-example#registry-key"
   ],
   "assertionMethod": [
-    "did:cha2a:skill:skill-compliance#registry-key"
+    "did:cha2a:skill:skill-example#registry-key"
   ],
   "service": [
     {
-      "id": "did:cha2a:skill:skill-compliance#trust-lookup",
+      "id": "did:cha2a:skill:skill-example#trust-lookup",
       "type": "TrustLookup",
-      "serviceEndpoint": "https://registry.example.com/api/v1/trust/query?type=skill&name=skill-compliance"
+      "serviceEndpoint": "https://registry.example.com/api/v1/trust/query?type=skill&name=skill-example"
     },
     {
-      "id": "did:cha2a:skill:skill-compliance#trust-proof",
+      "id": "did:cha2a:skill:skill-example#trust-proof",
       "type": "TrustProof",
-      "serviceEndpoint": "https://registry.example.com/api/v1/trust/proof?did=did%3Acha2a%3Askill%3Askill-compliance"
+      "serviceEndpoint": "https://registry.example.com/api/v1/trust/proof?did=did%3Acha2a%3Askill%3Askill-example"
     },
     {
-      "id": "did:cha2a:skill:skill-compliance#badge",
+      "id": "did:cha2a:skill:skill-example#badge",
       "type": "TrustBadge",
-      "serviceEndpoint": "https://registry.example.com/badge/skill/skill-compliance"
+      "serviceEndpoint": "https://registry.example.com/badge/skill/skill-example"
     }
   ],
   "created": "2026-08-18T00:00:00Z",
@@ -505,7 +503,7 @@ The following are explicitly out of the conformance suite's coverage until furth
 
 - **L4 ecosystem state**: requires ≥2 *independent* real verifiers with auditable re-verification (§4.6) — not provable by fixtures alone; tracked as a target ecosystem state, not a fixture verdict.
 - **Federation across real registries**: v0.4 specifies the peer profile minimally (§4.2.1 + §7.5); its offline semantics (local-first, explicit-peer forward, fail-closed) are covered by conformance vectors, but interoperation between two real deployments is not yet verified (no second live registry).
-- **Runtime attestation vocabulary** (§4.7): the runtime-side vocabulary is reserved, no runtime behavior defined; the registry-side content-integrity checks in the same section are covered by conformance vectors.
+- **Runtime attestation vocabulary** (§4.8): the runtime-side vocabulary is reserved, no runtime behavior defined; the registry-side content-integrity checks (§4.7) are covered by conformance vectors.
 
 ### 9.5 Conformance assets
 
