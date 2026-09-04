@@ -19,7 +19,7 @@ The `did:cha2a` method serves an open ecosystem for agent-to-agent identity and 
 
 The `a2a` in the method name reflects that the method serves agent-to-agent interaction: beyond attesting skills and packages for human or agent use, `did:cha2a:agent` identifiers let agents mutually authenticate, discover capabilities, delegate work, and audit — a trust substrate for agent interconnection.
 
-The method is **registry-mediated**: resolving a `did:cha2a` DID returns a W3C DID Document whose verification key is the Registry's Ed25519 signing key. The trust model is explicit and stated honestly: a verifier trusts a `did:cha2a` DID exactly as much as it trusts the Registry resolver it was configured with. This design is deliberately identical in trust semantics to other registry-mediated methods, while remaining independent in name, specification, and implementation.
+The method is **registry-mediated**: resolving a `did:cha2a` DID returns a W3C DID Document whose verification key is the Registry's Ed25519 signing key. The trust model is explicit and stated honestly: a verifier trusts a `did:cha2a` DID exactly as much as it trusts the Registry resolver it was configured with. This design follows the standard registry-mediated trust model (a verifier trusts its configured resolver); this specification is an independent registration in name, specification, and implementation.
 
 The method supports a four-layer identity model:
 
@@ -42,9 +42,9 @@ did:cha2a:agent:agent_conformance_test_001#key-1
 did:cha2a:publisher:example-marketplace.com
 ```
 
-### 1.2 Relationship to other registry-mediated methods
+### 1.2 Registry-mediated model and federation
 
-Registry-mediated DID methods (a registry assigns the DID, holds the controller signing key, and resolves DID Documents over HTTP) form a small family. This method is an **independent registration**: it has its own name, specification, and reference implementation, deployed domestically at compliancehub.cn. The resource-type set (§3.2) follows the shared open convention of the family for interoperability; a verifier that trusts a resolver can resolve any well-formed DID of any registry-mediated method it is configured for. This method neither requires nor forbids interoperation with other registries; federation is specified minimally in §4.2.1 (permission model) and §7.5 (operational requirements).
+Registry-mediated DID methods share a common technical model: a registry assigns the DID, holds the controller signing key, and resolves DID Documents over HTTP. `did:cha2a` is an **independent registration** within this model — with its own name, specification, and reference implementation, deployed domestically at compliancehub.cn. Its resource-type set (§3.2) is defined by this specification for interoperability. This method neither requires nor forbids interoperation with other registries; federation is specified minimally in §4.2.1 (permission model) and §7.5 (operational requirements).
 
 ### 1.3 Relationship to A2A and ARD ecosystems
 
@@ -85,13 +85,13 @@ The `resource-type` rule is intentionally open. New resource types may be added 
 
 ### 3.1.1 Relationship to the DID Core `idchar` production
 
-DID Core restricts the generic `method-specific-id` to `idchar` (no unescaped `/` or `@`). Like other registry-mediated methods that mirror upstream package identifiers, this specification intentionally admits `/` and `@` unescaped so a DID string is byte-identical to the upstream identifier it names (e.g. `@modelcontextprotocol/server-filesystem`). Consumers requiring strict generic-DID grammar MAY percent-encode; consumers within the cha2a ecosystem SHOULD accept the unescaped form. This deviation is deliberate and recorded here rather than left implicit.
+DID Core restricts the generic `method-specific-id` to `idchar` (no unescaped `/` or `@`). Because `did:cha2a` mirrors upstream package identifiers (e.g. scoped npm names), this specification intentionally admits `/` and `@` unescaped so a DID string is byte-identical to the upstream identifier it names (e.g. `@modelcontextprotocol/server-filesystem`). Consumers requiring strict generic-DID grammar MAY percent-encode; consumers within the cha2a ecosystem SHOULD accept the unescaped form. This deviation is deliberate and recorded here rather than left implicit.
 
 ### 3.2 Resource type registry
 
 Registration governs *issuance*, not *resolution*: implementations MUST NOT reject a DID solely because the `resource-type` slot contains an unregistered value that otherwise conforms to the ABNF in §3.1. Implementations MAY return 404 Not Found if the Registry has no record of the named resource.
 
-The following resource types are defined, aligned with the shared open convention of registry-mediated methods in the agent ecosystem (for interoperability):
+The following resource types are defined by this specification:
 
 | Resource type | Description |
 |---|---|
@@ -467,7 +467,7 @@ A federated deployment MUST NOT relay data to another registry unless explicitly
 
 ## 8. Reference Implementations
 
-- **cha2a Registry (reference, running).** The reference registry is live at **<https://compliancehub.cn>** (operated by the maintainer; HTTPS via the site's existing TLS). It implements the §4 operations (Create, Read, Update, Deactivate), the §5 DID Document structure, and the §5.2 discovery document. Public endpoints include `https://compliancehub.cn/.well-known/cha2a` (discovery), `https://compliancehub.cn/api/v1/did/<did>` (resolution), `https://compliancehub.cn/api/v1/trust/query?did=<did>` (trust lookup), `https://compliancehub.cn/badge/<type>/<id>` (badge), `https://compliancehub.cn/api/v1/search?q=<term>` (search), `https://compliancehub.cn/api/v1/verify/artifact` (content-integrity, POST), and `https://compliancehub.cn/api/v1/registry/status` (federation). The Node process listens on `127.0.0.1` only; nginx reverse-proxies the deployed API paths on port 443, reusing the site certificate, and no public port is opened. Service endpoints advertised in `/.well-known/cha2a` are limited to the capabilities actually deployed (DID resolution; trust lookup, proof, and revocation; deactivation; evidence register/query; phone register/resolve/lookup; search; and the §4.2.1 federation peer profile — status/peers/trust); capabilities not deployed are not advertised. Conformance is demonstrated with byte-stable test vectors (self-published, `MANIFEST.sha256`-pinned) and, where applicable, cross-checked against the conformance fixtures of interoperable registry-mediated methods.
+- **cha2a Registry (reference, running).** The reference registry is live at **<https://compliancehub.cn>** (operated by the maintainer; HTTPS via the site's existing TLS). It implements the §4 operations (Create, Read, Update, Deactivate), the §5 DID Document structure, and the §5.2 discovery document. Public endpoints include `https://compliancehub.cn/.well-known/cha2a` (discovery), `https://compliancehub.cn/api/v1/did/<did>` (resolution), `https://compliancehub.cn/api/v1/trust/query?did=<did>` (trust lookup), `https://compliancehub.cn/badge/<type>/<id>` (badge), `https://compliancehub.cn/api/v1/search?q=<term>` (search), `https://compliancehub.cn/api/v1/verify/artifact` (content-integrity, POST), and `https://compliancehub.cn/api/v1/registry/status` (federation). The Node process listens on `127.0.0.1` only; nginx reverse-proxies the deployed API paths on port 443, reusing the site certificate, and no public port is opened. Service endpoints advertised in `/.well-known/cha2a` are limited to the capabilities actually deployed (DID resolution; trust lookup, proof, and revocation; deactivation; evidence register/query; phone register/resolve/lookup; search; and the §4.2.1 federation peer profile — status/peers/trust); capabilities not deployed are not advertised. Conformance is demonstrated with byte-stable test vectors (self-published, `MANIFEST.sha256`-pinned).
 - **Verifier tooling.** A local verifier (Ed25519) validating DID Documents and signed trust proofs against discovery `publicKeys`.
 
 ## 9. Conformance
