@@ -1,12 +1,9 @@
-## 1.0.1 — 2026-09-04（IP 姿态措辞澄清）
-
-- Structure note 措辞更明确：Apache-2.0 许可 + 结构参考 did:opena2a（同许可）合法 + **零文本复制**声明（消 W3C 预审 S3 warn）。
-
 ## 1.0 — 2026-09-04（首个冻结发布，送 W3C DID Extensions 审阅基线 PR #744）
 
 - §4.7 结构整理：`Runtime attestation (reserved)` 重构为 `Evidence credentials and verification`（evidence credential / predicate 命名空间 / content-integrity 四检查归位，原误挂 reserved 节）；真 reserved 词汇映射单列 §4.8。
 - §4.6 等级表 L1 补 agent 型基（`#agent-key` identity-anchor）。
 - §5 DID 文档示例换中性 id（`skill-example`）；content-integrity 去草案版本号标记。
+- Structure note 改为 DID 方法通用结构表述（syntax/operations/DID document/security/privacy），不提特定方法名。
 
 ## Unreleased (v0.4)
 

@@ -46,5 +46,5 @@ agent-to-agent（智能体间通信）。
 
 ## 六、状态与版本
 
-- Draft（未注册进 W3C DID Extensions registry）；当前版本 **v1.0.1**（IP 措辞澄清；首个冻结发布 v1.0，送 W3C #744 审阅基线）
+- Draft（未注册进 W3C DID Extensions registry）；当前版本 **v1.0**（首个冻结发布，送 W3C #744 审阅基线）
 - 变更流程：substantive 变更走 PR + 1 天冷静期（下限，评审者可要求延长；见规范 §9）

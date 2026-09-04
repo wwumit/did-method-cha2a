@@ -2,14 +2,14 @@
 
 ## The `did:cha2a` DID Method Specification
 
-**Version:** 1.0.1
+**Version:** 1.0
 **Status:** Draft — not yet registered in the W3C DID Extensions registry; reference implementation live at compliancehub.cn
 **License:** Apache License, Version 2.0
 **Editor:** wwumit (complianceHub)
 **Repository:** <https://github.com/wwumit/did-method-cha2a>
 **Abstract:** This specification defines the `did:cha2a` Decentralized Identifier method. The method name is pronounced "CH-A2A": the prefix `ch` is an abbreviation for **complianceHub**, and `a2a` denotes agent-to-agent. A `did:cha2a` identifier names a resource — a publisher, an authority, an agent, a skill, an MCP server, an AI tool, an LLM, or the registry itself — registered in a cha2a Registry. Resolution returns a W3C DID Document whose verification material is the Registry's Ed25519 signing key and whose service endpoints expose trust lookup, signed trust proofs, and trust badges.
 
-**Structure note:** This specification is self-authored and licensed under Apache-2.0. Its section organization follows common DID method specification practice (syntax, operations, DID Document structure, security/privacy considerations) and references the structure of `did:opena2a` (Apache-2.0), which permits such structural reference. **No text is copied from any other specification**; all normative content herein is original to this specification.
+**Structure note:** This specification is self-authored and licensed under Apache-2.0. Its section organization follows the common structure required of DID method specifications (syntax, operations, DID Document structure, security/privacy considerations). All normative content herein is original to this specification.
 
 ---
 
@@ -472,7 +472,7 @@ A federated deployment MUST NOT relay data to another registry unless explicitly
 
 ## 9. Conformance
 
-This section defines how conformance to this specification is demonstrated and declared, following the pattern established by the opena2a ATX/ATP conformance suites (byte-stable fixtures pinned by SHA-256, verified by SDK-independent reference verifiers, with a `MANIFEST.sha256`).
+This section defines how conformance to this specification is demonstrated and declared, following the established pattern of DID method conformance suites (byte-stable fixtures pinned by SHA-256, verified by SDK-independent reference verifiers, with a `MANIFEST.sha256`).
 
 ### 9.1 Conformance statement
 
@@ -529,9 +529,8 @@ Normative requirements appear only in this document; companion documents are inf
 
 - W3C Decentralized Identifiers (DIDs) v1.0: <https://www.w3.org/TR/did-core/>
 - W3C DID Extensions registry: <https://github.com/w3c/did-extensions>
-- `did:opena2a` method specification (structure reference, Apache-2.0): <https://github.com/opena2a-standards/did-method-opena2a>
 - DID Core `idchar` and verification relationships: <https://www.w3.org/TR/did-core/>
 
 ---
 
-*v1.0.1. Editor: wwumit (complianceHub). License: Apache-2.0.*
+*v1.0. Editor: wwumit (complianceHub). License: Apache-2.0.*
