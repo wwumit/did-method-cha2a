@@ -2,7 +2,7 @@
 
 ## The `did:cha2a` DID Method Specification
 
-**Version:** 0.4 (unreleased)
+**Version:** 1.0
 **Status:** Draft — not yet registered in the W3C DID Extensions registry; reference implementation live at compliancehub.cn
 **License:** Apache License, Version 2.0
 **Editor:** wwumit (complianceHub)
@@ -534,4 +534,4 @@ Normative requirements appear only in this document; companion documents are inf
 
 ---
 
-*v0.4 (unreleased). Editor: wwumit (complianceHub). License: Apache-2.0.*
+*v1.0. Editor: wwumit (complianceHub). License: Apache-2.0.*

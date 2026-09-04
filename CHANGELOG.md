@@ -1,3 +1,9 @@
+## 1.0 — 2026-09-04（首个冻结发布，送 W3C DID Extensions 审阅基线 PR #744）
+
+- §4.7 结构整理：`Runtime attestation (reserved)` 重构为 `Evidence credentials and verification`（evidence credential / predicate 命名空间 / content-integrity 四检查归位，原误挂 reserved 节）；真 reserved 词汇映射单列 §4.8。
+- §4.6 等级表 L1 补 agent 型基（`#agent-key` identity-anchor）。
+- §5 DID 文档示例换中性 id（`skill-example`）；content-integrity 去草案版本号标记。
+
 ## Unreleased (v0.4)
 
 - §1.2: federation from "out of scope" → "specified minimally" (§4.2.1 + §7.5).
