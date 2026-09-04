@@ -2,7 +2,7 @@
 
 ## The `did:cha2a` DID Method Specification
 
-**Version:** 1.0
+**Version:** 1.0.2
 **Status:** Draft — not yet registered in the W3C DID Extensions registry; reference implementation live at compliancehub.cn
 **License:** Apache License, Version 2.0
 **Editor:** wwumit (complianceHub)
@@ -19,7 +19,7 @@ The `did:cha2a` method serves an open ecosystem for agent-to-agent identity and 
 
 The `a2a` in the method name reflects that the method serves agent-to-agent interaction: beyond attesting skills and packages for human or agent use, `did:cha2a:agent` identifiers let agents mutually authenticate, discover capabilities, delegate work, and audit — a trust substrate for agent interconnection.
 
-The method is **registry-mediated**: resolving a `did:cha2a` DID returns a W3C DID Document whose verification key is the Registry's Ed25519 signing key. The trust model is explicit and stated honestly: a verifier trusts a `did:cha2a` DID exactly as much as it trusts the Registry resolver it was configured with. This design follows the standard registry-mediated trust model (a verifier trusts its configured resolver); this specification is an independent registration in name, specification, and implementation.
+The method is **registry-mediated**: resolving a `did:cha2a` DID returns a W3C DID Document whose verification key is the Registry's Ed25519 signing key. The trust model is explicit and stated honestly: a verifier trusts a `did:cha2a` DID exactly as much as it trusts the Registry resolver it was configured with. This design follows the registry-mediated trust model described above; this specification is an independent registration in name, specification, and implementation.
 
 The method supports a four-layer identity model:
 
@@ -44,7 +44,7 @@ did:cha2a:publisher:example-marketplace.com
 
 ### 1.2 Registry-mediated model and federation
 
-Registry-mediated DID methods share a common technical model: a registry assigns the DID, holds the controller signing key, and resolves DID Documents over HTTP. `did:cha2a` is an **independent registration** within this model — with its own name, specification, and reference implementation, deployed domestically at compliancehub.cn. Its resource-type set (§3.2) is defined by this specification for interoperability. This method neither requires nor forbids interoperation with other registries; federation is specified minimally in §4.2.1 (permission model) and §7.5 (operational requirements).
+A registry-mediated DID method follows a technical model in which a registry assigns the DID, holds the controller signing key, and resolves DID Documents over HTTP. `did:cha2a` is an **independent registration** within this model — with its own name, specification, and reference implementation, deployed domestically at compliancehub.cn. Its resource-type set (§3.2) is defined by this specification for interoperability. This method neither requires nor forbids interoperation with other registries; federation is specified minimally in §4.2.1 (permission model) and §7.5 (operational requirements).
 
 ### 1.3 Relationship to A2A and ARD ecosystems
 
@@ -533,4 +533,4 @@ Normative requirements appear only in this document; companion documents are inf
 
 ---
 
-*v1.0. Editor: wwumit (complianceHub). License: Apache-2.0.*
+*v1.0.2. Editor: wwumit (complianceHub). License: Apache-2.0.*

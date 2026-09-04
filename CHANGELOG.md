@@ -1,3 +1,7 @@
+## 1.0.2 — 2026-09-04（送 W3C #744 审阅基线）
+
+- 独立叙事：删"家族/共享惯例/与其它方法相同/互操作"等相似性表述；registry-mediated 仅作自身技术机制描述，不提任何特定方法。
+
 ## 1.0 — 2026-09-04（首个冻结发布，送 W3C DID Extensions 审阅基线 PR #744）
 
 - §4.7 结构整理：`Runtime attestation (reserved)` 重构为 `Evidence credentials and verification`（evidence credential / predicate 命名空间 / content-integrity 四检查归位，原误挂 reserved 节）；真 reserved 词汇映射单列 §4.8。
