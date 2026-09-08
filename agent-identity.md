@@ -94,6 +94,30 @@ Agent 调用 SaaS/MCP/计费端点：出站签名标识调用者（§4.5）；�
 ### 6.4 委托代理
 Agent 代表 controller（用户/组织）行动：授权范围由 controller 声明（capabilities.scope，见 §七）；跨实例委托时 DID Document 承担委托与审计（主规范 §3.2）。
 
+### 6.5 服务附着与号段授予（自主规范 v1.1.0 起移入）
+
+主规范 §3.3 只保留语义指针；附着形态、校验规则与授予 API 的完整定义在本节。
+
+**服务附着（`metadata.services`）。** Agent 记录可携带 `metadata.services` 数组，元素两种形态：
+
+1. **字符串** —— 能力标签（如 `"telephony"`）。无引用、无校验；任何 org/agent 均可声明。
+2. **对象** —— 对具体 org/provider 的附着：
+   - `{ "type": "telephony", "org": "did:cha2a:org:<id>", "number": "+86..." }`
+   - `{ "type": "messaging", "sp": "did:cha2a:provider:<id>" }`
+
+**校验规则**（注册与更新时双向执行）：
+- 对象条目引用的 org/provider DID **必须已注册**（悬挂引用拒绝）；
+- 同时附着 `org` 且携带 `number` 的条目，该号码**必须落入**该 org 的**已授予号段**——号码属于 Registry，号段授予 org 运营；
+- 仅附着 provider 的条目号码不做号段校验（provider 不运营号码；留作扩展点）。
+
+**号段授予 API。** 号码是 Registry 资产：Registry 是号码所有权的中立权威，向 org 授予运营号段。
+- `POST /api/v1/number-range/grant` —— Registry 向 org 签发 `number-range` 授予：请求 `{ "grantee": "did:cha2a:org:<id>", "range": "+86138" }`（国际前缀形式）。管理操作（X-Admin-Key）；未配置管理密钥时禁用（503）。拒绝情形：grantee 非 org、org 未注册、号段格式非法、存在重复活跃授予（409）。
+- `GET /api/v1/number-ranges?grantee=<did>` —— org 已授予号段的公开查询（号码权威可公开审计）。
+
+授予记录是一等谓词（`number-range-grant`），可作为信任模型中 L2+ 的承载证据（主规范 §4.7）。
+
+**能力检索。** Registry 可提供只读检索端点（`GET /api/v1/search?q=`），覆盖已注册资源及其能力/描述字段；能力标签宜用简短、可人工检索的字符串。该端点补充（不替代）A2A Agent Card 与 ARD 的发现机制。
+
 ## 七、委托与授权范围
 
 - **controller 委托**：Agent 的授权范围（capabilities 子集 + scope）由 controller 声明；scope 表达"Agent 可在什么边界内代表 controller 行动"
@@ -114,7 +138,7 @@ Agent 代表 controller（用户/组织）行动：授权范围由 controller �
 - **身份形态**：registry-mediated DID（`did:cha2a:agent:<id>`），解析返回 W3C DID Document
 - **信任表达**：L0-L4 认证等级，可下钻到机器可读证据（Evidence Record：evidenceRef + artifactDigest 防篡改）——**等级是"信任摘要"，不是聚合评分，也不是安全保证**
 - **证据驱动**：每一条凭证背后是可核验的原始验证记录（in-toto 对齐）；不做行为监控类评价（CHA2A Scope：注册表只记事实）
-- **国标依据**：对齐 GB/Z 185（身份码/身份管理/能力描述）机制
+- **身份码映射**：DID Document 可选 `nationalStandardId` 属性，支持与其他身份码体系声明映射关系（语义见附录）
 - **开放**：格式开放、数据可导出、任何实现可替换；与其他身份体系的互操作按需演进
 
 ## 十、参考实现
@@ -128,6 +152,19 @@ Agent 代表 controller（用户/组织）行动：授权范围由 controller �
 3. **委托撤销传播**：controller 撤销委托后，已签发证据/已授权调用的失效语义
 4. **能力验证方式**：能力声明的第三方验证（谁来验证 Agent 的 capabilities、用什么 predicate）
 5. **多实例 Agent**：一个实例注册多个 Agent（各自可寻址）的落地语义
+
+## 附录：身份码映射（nationalStandardId）
+
+*本节内容自主规范 v1.1.0 起移入分册（主规范只保留方法核心与泛化的 `nationalStandardId` 属性声明，见其 §5.1）。*
+
+CHA2A 以 DID 为密码学信任核心，实现凭据生命周期、身份认证流、委托链验证与能力描述等机制。部署方如需与特定区域或管辖域的**身份码体系**建立合规映射，可通过主规范 DID Document 的可选属性 `nationalStandardId` 声明；该属性为合规标签，其语义在本分册定义，本分册不绑定任何特定身份码体系。
+
+映射是声明层面而非信任层面：身份码是合规标签，DID 是信任执行者——声明映射仅建立编码对应关系，运行时信任始终由密码学验证承担。
+
+**规范性文本与实现**（GitHub）：
+
+- 主规范（did:cha2a DID Method Specification）：<https://github.com/wwumit/did-method-cha2a>
+- 一致性测试向量与双验证器（Python / Node，离线可复验）：<https://github.com/wwumit/cha2a-conformance>
 
 ---
 

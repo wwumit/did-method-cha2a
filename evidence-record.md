@@ -4,7 +4,7 @@
 > 日期：2026-08-20
 > 定位：CHA2A 规范组文档（独立于 did-method-cha2a.md 身份方法）——定义"验证产出"的机器可读格式
 > 原则：**能用已有标准就不自造**——结构对齐 in-toto Attestation；predicate 能用现成直接引用，缺的定义 `cha2a/*` 命名空间
-> 关联：CHA2A-Scope（边界）、GOVERNANCE_FRAMEWORK（治理认知）、#3192（讨论）、GB/Z 185（国标依据）
+> 关联：CHA2A-Scope（边界）、GOVERNANCE_FRAMEWORK（治理认知）、#3192（讨论）
 
 ---
 
