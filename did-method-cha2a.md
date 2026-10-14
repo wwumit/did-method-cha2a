@@ -3,7 +3,6 @@
 ## The `did:cha2a` DID Method Specification
 
 **Version:** 1.1.0
-**Status:** Draft — not yet registered in the W3C DID Extensions registry; reference implementation live at compliancehub.cn
 **License:** Apache License, Version 2.0
 **Editor:** wwumit (complianceHub)
 **Repository:** <https://github.com/wwumit/did-method-cha2a>
@@ -502,7 +501,7 @@ The following are explicitly out of the conformance suite's coverage until furth
 
 ### 9.5 Conformance assets
 
-The conformance suite (fixtures, reference verifiers, `MANIFEST.sha256`) is published in the companion repository **`cha2a-conformance`** (byte-stable fixtures, SHA-256-pinned in `MANIFEST.sha256`, judged by two SDK-independent reference verifiers — Python and Node — with parity interlock). **Current status: 68 fixtures (incl. §4.2.1 federation semantics and §4.7 content-integrity four-check vectors) judged 68/68 PASS by both verifiers; live checks against the running reference registry pass for the endpoints it exposes (§8); negative-vector ratio >1/3; CI enforces manifest pinning, count anti-drift, cross-repo version consistency, and reverse coverage of normative blocks.** Implementations claiming conformance MUST publish or reference their own vectors for any subset they claim beyond what this suite provides.
+The conformance suite (fixtures, reference verifiers, `MANIFEST.sha256`) is published in the companion repository **`cha2a-conformance`** (byte-stable fixtures, SHA-256-pinned in `MANIFEST.sha256`, judged by two SDK-independent reference verifiers — Python and Node — with parity interlock). Implementations claiming conformance MUST publish or reference their own vectors for any subset they claim beyond what this suite provides.
 
 ## 10. Versioning and Change Process
 
