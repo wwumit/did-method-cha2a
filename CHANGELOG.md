@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased (2026-10-14) — non-substantive edits; no version cut
+
+- **Front matter**: removed the `**Status:**` line (`Draft — not yet registered in the W3C DID Extensions registry; reference implementation live at compliancehub.cn`). It stated a review/registration stage, which is a property of the registry entry rather than of the method specification, and it had already gone stale. Under §10 this is not one of the five substantive categories, so no version is cut.
+- **§9 Conformance**: dropped `**Current status: 68 fixtures … 68/68 PASS … reverse coverage of normative blocks.**` from the conformance-suite paragraph. Counts and pass rates change whenever a fixture is added, so the sentence goes stale on the next fixture; their home is the `cha2a-conformance` repository and its CI. The surrounding methodological description (byte-stable fixtures, `MANIFEST.sha256` pinning, two SDK-independent reference verifiers with parity interlock) is retained.
+
 ## 1.1.0 — 2026-09-08 (response to did-extensions editor review; ABNF grammar change, minor bump)
 
 - §4.1 Create rewritten: **Registration flow** (registration via an authenticated publisher endpoint or an upstream ingestion pipeline; collision rejection), **Key custody** (the Registry generates and holds `#registry-key` by default; an agent MAY optionally register a self-held `#agent-key` — public key only, never the private key; custody externally visible through `verificationMethod.controller`), **Registries and resolution routing** (the DID encodes no registry location — same rationale as `did:key`; the verifier-configured resolver is the trust anchor; multiple deployments self-advertise via §5.2 discovery; records not held locally follow §4.2.1 fail-closed).

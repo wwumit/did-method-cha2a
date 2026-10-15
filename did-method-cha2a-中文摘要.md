@@ -42,9 +42,11 @@ agent-to-agent（智能体间通信）。
 
 - **读开放、写受控**：身份/信任/凭证/号码查询公开只读；注册/撤销等写操作需管理员密钥或签名
 - **中立协议基础设施**：Registry 是"协议中立"的基础设施，独立于具体商店/公司运营
-- 参考实现运行于 compliancehub.cn（Draft 阶段）；对外宣称须与实际 conformance 验证一致（声称=实有）
+- 参考实现运行于 compliancehub.cn；对外宣称须与实际 conformance 验证一致（声称=实有）
 
 ## 六、状态与版本
 
-- Draft（未注册进 W3C DID Extensions registry）；当前版本 **v1.0.2**（送 W3C #744 审阅基线）
-- 变更流程：substantive 变更走 PR + 1 天冷静期（下限，评审者可要求延长；见规范 §9）
+- 规范本身为 **Draft**；**已注册进 W3C DID Extensions registry**（PR #744，2026-09-26 合并）
+- 当前版本 **v1.1.0**（**v1.0.2** 是当时送审的基线，不是当前版本）
+- **规范正文的状态行已删去**（**未发布**）：`did-method-cha2a.md` 原先那句 "not yet registered …" 已从正文移除，记在 `CHANGELOG.md` 的 `Unreleased (2026-10-14)` 段。`v1.1.0` 标签所 pin 的那一份**仍保留原文**——标签不可变，那是**当时状态**
+- 变更流程：substantive 变更走 PR + 1 天冷静期（下限，评审者可要求延长；见规范 **§10**）
